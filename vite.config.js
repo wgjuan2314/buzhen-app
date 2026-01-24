@@ -1,18 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { qrcode } from 'vite-plugin-qrcode'
 
 export default defineConfig({
-  plugins: [
-    react(),
-    // 二维码插件：启动时显示二维码，手机扫码即可访问
-    qrcode({
-      // 显示二维码的位置：终端输出
-      showInTerminal: true,
-      // 二维码大小
-      size: 200,
-    }),
-  ],
+  plugins: [react()],
   server: {
     // 允许外部访问（局域网访问）
     host: '0.0.0.0',
