@@ -1,6 +1,6 @@
 // DifyService.js
-export const API_KEY = 'app-UYEWC1XcKN5YYo50zgyVVU74'; // 已替換為真實 Dify API 密鑰
-export const BASE_URL = '/api'; 
+export const API_KEY = import.meta.env.VITE_DIFY_API_KEY;
+export const BASE_URL = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1'; 
 
 // localStorage key
 const CONVERSATION_ID_KEY = 'dify_conversation_id'
