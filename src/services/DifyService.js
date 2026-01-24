@@ -1,6 +1,11 @@
 // DifyService.js
-export const API_KEY = import.meta.env.VITE_DIFY_API_KEY;
-export const BASE_URL = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1'; 
+// 防御性 URL 處理：強制去掉末尾斜杠
+const rawUrl = import.meta.env.VITE_DIFY_API_URL || 'https://api.dify.ai/v1'
+export const BASE_URL = rawUrl.replace(/\/$/, '')
+
+// API Key 處理
+const rawApiKey = import.meta.env.VITE_DIFY_API_KEY || ''
+export const API_KEY = rawApiKey.trim()
 
 // localStorage key
 const CONVERSATION_ID_KEY = 'dify_conversation_id'
@@ -27,6 +32,12 @@ export const saveConversationId = (conversationId) => {
   }
 }
 
+// 隱藏 API Key 用於日誌顯示
+const maskApiKey = (key) => {
+  if (!key || key.length < 8) return '***'
+  return `${key.slice(0, 4)}...${key.slice(-4)}`
+}
+
 export const streamChat = async ({
   query,
   conversationId,
@@ -37,140 +48,293 @@ export const streamChat = async ({
   onLoginRequired,
   signal,
 }) => {
-  // 確保 query 是純字串
-  const queryText =
-    typeof query === 'string'
-      ? query
-      : typeof query?.query === 'string'
-        ? query.query
-        : JSON.stringify(query)
+  // Body 校驗：確保 query 是有效字串
+  let queryText = ''
+  if (typeof query === 'string' && query.trim()) {
+    queryText = query.trim()
+  } else if (typeof query?.query === 'string' && query.query.trim()) {
+    queryText = query.query.trim()
+  } else if (query) {
+    queryText = String(query)
+  }
+
+  if (!queryText) {
+    const error = new Error('[DifyService] query 參數無效或為空')
+    console.error(error)
+    throw error
+  }
+
+  // Body 校驗：確保 user 有有效值
+  const validUser = typeof user === 'string' && user.trim() ? user.trim() : 'suansuan_user'
 
   // 從 localStorage 獲取 conversation_id（優先使用傳入的，否則從 localStorage 獲取）
   const persistedConversationId = conversationId || getConversationId()
-  
-  console.log('[DifyService] 當前 conversation_id:', persistedConversationId || '新會話')
 
-  const response = await fetch(`${BASE_URL}/chat-messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      'Content-Type': 'application/json',
+  // 構建完整的請求 URL
+  const requestUrl = `${BASE_URL}/chat-messages`
+
+  // 構建請求體
+  const requestBody = {
+    inputs: {
+      total_rounds: 0,
+      is_logged_in: true,
+      ...inputs,
     },
-    body: JSON.stringify({
-      inputs: {
-        total_rounds: 0,
-        is_logged_in: true,
-        ...inputs,
-      },
-      query: queryText,
-      response_mode: 'streaming',
-      conversation_id: persistedConversationId || undefined,
-      user,
-    }),
-    signal,
+    query: queryText,
+    response_mode: 'streaming',
+    user: validUser,
+  }
+
+  // 只有在有 conversation_id 時才添加
+  if (persistedConversationId) {
+    requestBody.conversation_id = persistedConversationId
+  }
+
+  // 健壯的 Headers：確保 Authorization 使用 trim 後的 API_KEY
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+
+  if (API_KEY) {
+    headers.Authorization = `Bearer ${API_KEY}`
+  } else {
+    const error = new Error('[DifyService] API_KEY 未配置')
+    console.error(error)
+    throw error
+  }
+
+  // 詳細日誌（隱藏敏感信息）
+  console.log('[DifyService] 發起請求:', {
+    url: requestUrl,
+    method: 'POST',
+    hasApiKey: !!API_KEY,
+    maskedApiKey: maskApiKey(API_KEY),
+    conversationId: persistedConversationId || '新會話',
+    queryLength: queryText.length,
+    user: validUser,
   })
 
-  if (!response.ok) {
-    const raw = await response.text().catch(() => '')
-    let parsed = raw
-    try {
-      parsed = raw ? JSON.parse(raw) : raw
-    } catch {
-      // keep raw text
+  try {
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
+      signal,
+    })
+
+    // 錯誤處理：詳細的錯誤日誌
+    if (!response.ok) {
+      const raw = await response.text().catch(() => '')
+      let parsed = raw
+      try {
+        parsed = raw ? JSON.parse(raw) : raw
+      } catch {
+        // keep raw text
+      }
+
+      const errorMessage = typeof parsed === 'string' ? parsed : JSON.stringify(parsed)
+      const error = new Error(`Dify API 錯誤 ${response.status}: ${errorMessage}`)
+
+      // 詳細錯誤日誌（隱藏敏感信息）
+      console.error('[DifyService] 請求失敗:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: requestUrl,
+        maskedApiKey: maskApiKey(API_KEY),
+        error: errorMessage,
+        responseHeaders: Object.fromEntries(response.headers.entries()),
+      })
+
+      throw error
     }
-    throw new Error(
-      `Dify error ${response.status}: ${typeof parsed === 'string' ? parsed : JSON.stringify(parsed)}`,
-    )
-  }
 
-  if (!response.body) throw new Error('Streaming not supported in this environment')
+    // 流式處理：確保 response.body 存在
+    if (!response.body) {
+      const error = new Error('[DifyService] 當前環境不支持流式響應 (response.body 為空)')
+      console.error('[DifyService] 流式響應檢查失敗:', {
+        url: requestUrl,
+        hasBody: !!response.body,
+        responseType: response.type,
+      })
+      throw error
+    }
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  let buffer = ''
-  let currentConversationId = persistedConversationId
-  let loginRequiredDetected = false
-  let accumulatedContent = '' // 累積內容，用於檢查 LOGIN_REQUIRED
+    // 流式處理：確保 getReader 可用
+    let reader
+    try {
+      reader = response.body.getReader()
+    } catch (readerError) {
+      const error = new Error(`[DifyService] 無法獲取流式讀取器: ${readerError.message}`)
+      console.error('[DifyService] getReader 失敗:', {
+        url: requestUrl,
+        error: readerError.message,
+        stack: readerError.stack,
+      })
+      throw error
+    }
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let currentConversationId = persistedConversationId
+    let loginRequiredDetected = false
+    let accumulatedContent = '' // 累積內容，用於檢查 LOGIN_REQUIRED
 
-    buffer += decoder.decode(value, { stream: true })
+    // 流式處理：健壯的讀取循環
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
 
-    const chunks = buffer.split(/\n\n/)
-    buffer = chunks.pop() || ''
+        if (done) {
+          console.log('[DifyService] 流式響應完成')
+          break
+        }
 
-    for (const chunk of chunks) {
-      const lines = chunk.split(/\n/)
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed.startsWith('data:')) continue
-
-        const data = trimmed.replace(/^data:\s?/, '')
-        if (!data || data === '[DONE]') continue
+        if (!value) {
+          console.warn('[DifyService] 讀取到空值，繼續等待...')
+          continue
+        }
 
         try {
-          const json = JSON.parse(data)
-          
-          // 處理 metadata：保存 conversation_id 和打印會話輪數
-          if (json.conversation_id && json.conversation_id !== currentConversationId) {
-            currentConversationId = json.conversation_id
-            saveConversationId(currentConversationId)
-            console.log('[DifyService] 新會話已創建，conversation_id:', currentConversationId)
-          }
-          
-          // 打印會話輪數
-          if (json.metadata?.rounds !== undefined) {
-            console.log(`[Dify] 當前會話輪數計數: ${json.metadata.rounds}`)
-          }
-          
-          // 調用 onMeta 回調
-          onMeta?.(json)
-          
-          // 提取 delta 內容
-          const delta = json.answer ?? json.delta ?? json.text
-          if (typeof delta === 'string' && delta.length) {
-            accumulatedContent += delta
-            
-            // 檢查是否包含 LOGIN_REQUIRED 攔截信號
-            if (accumulatedContent.includes('LOGIN_REQUIRED') && !loginRequiredDetected) {
-              loginRequiredDetected = true
-              console.warn('[DifyService] 檢測到登錄攔截信號: LOGIN_REQUIRED')
-              
-              // 調用登錄提示回調
-              if (onLoginRequired) {
-                onLoginRequired()
-              } else {
-                // 如果沒有提供回調，觸發全局事件
-                window.dispatchEvent(new CustomEvent('dify:login-required'))
+          buffer += decoder.decode(value, { stream: true })
+        } catch (decodeError) {
+          console.warn('[DifyService] 解碼錯誤:', decodeError)
+          continue
+        }
+
+        const chunks = buffer.split(/\n\n/)
+        buffer = chunks.pop() || ''
+
+        for (const chunk of chunks) {
+          const lines = chunk.split(/\n/)
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data:')) continue
+
+            const data = trimmed.replace(/^data:\s?/, '')
+            if (!data || data === '[DONE]') continue
+
+            try {
+              const json = JSON.parse(data)
+
+              // 處理 metadata：保存 conversation_id 和打印會話輪數
+              if (json.conversation_id && json.conversation_id !== currentConversationId) {
+                currentConversationId = json.conversation_id
+                saveConversationId(currentConversationId)
+                console.log('[DifyService] 新會話已創建，conversation_id:', currentConversationId)
               }
-              
-              // 不將 LOGIN_REQUIRED 內容顯示在聊天氣泡中
-              continue
-            }
-            
-            // 如果已經檢測到登錄要求，過濾掉相關內容
-            if (loginRequiredDetected) {
-              // 移除 LOGIN_REQUIRED 相關內容
-              const cleanedDelta = delta.replace(/LOGIN_REQUIRED/gi, '').trim()
-              if (cleanedDelta && onDelta) {
-                onDelta(cleanedDelta)
+
+              // 打印會話輪數
+              if (json.metadata?.rounds !== undefined) {
+                console.log(`[Dify] 當前會話輪數計數: ${json.metadata.rounds}`)
               }
-            } else {
-              // 正常處理 delta
-              if (onDelta) onDelta(delta)
+
+              // 調用 onMeta 回調
+              if (onMeta) {
+                try {
+                  onMeta(json)
+                } catch (metaError) {
+                  console.warn('[DifyService] onMeta 回調錯誤:', metaError)
+                }
+              }
+
+              // 提取 delta 內容
+              const delta = json.answer ?? json.delta ?? json.text
+              if (typeof delta === 'string' && delta.length) {
+                accumulatedContent += delta
+
+                // 檢查是否包含 LOGIN_REQUIRED 攔截信號
+                if (accumulatedContent.includes('LOGIN_REQUIRED') && !loginRequiredDetected) {
+                  loginRequiredDetected = true
+                  console.warn('[DifyService] 檢測到登錄攔截信號: LOGIN_REQUIRED')
+
+                  // 調用登錄提示回調
+                  if (onLoginRequired) {
+                    try {
+                      onLoginRequired()
+                    } catch (loginError) {
+                      console.warn('[DifyService] onLoginRequired 回調錯誤:', loginError)
+                    }
+                  } else {
+                    // 如果沒有提供回調，觸發全局事件
+                    try {
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('dify:login-required'))
+                      }
+                    } catch (eventError) {
+                      console.warn('[DifyService] 觸發全局事件失敗:', eventError)
+                    }
+                  }
+
+                  // 不將 LOGIN_REQUIRED 內容顯示在聊天氣泡中
+                  continue
+                }
+
+                // 如果已經檢測到登錄要求，過濾掉相關內容
+                if (loginRequiredDetected) {
+                  // 移除 LOGIN_REQUIRED 相關內容
+                  const cleanedDelta = delta.replace(/LOGIN_REQUIRED/gi, '').trim()
+                  if (cleanedDelta && onDelta) {
+                    try {
+                      onDelta(cleanedDelta)
+                    } catch (deltaError) {
+                      console.warn('[DifyService] onDelta 回調錯誤 (cleaned):', deltaError)
+                    }
+                  }
+                } else {
+                  // 正常處理 delta
+                  if (onDelta) {
+                    try {
+                      onDelta(delta)
+                    } catch (deltaError) {
+                      console.warn('[DifyService] onDelta 回調錯誤:', deltaError)
+                    }
+                  }
+                }
+              }
+            } catch (parseError) {
+              // 忽略無效的 JSON 行（這是正常的，因為流式響應可能包含不完整的數據）
+              if (process.env.NODE_ENV === 'development') {
+                console.debug('[DifyService] JSON 解析跳過:', parseError.message)
+              }
             }
           }
-        } catch {
-          // ignore bad json line
         }
       }
+    } catch (readError) {
+      console.error('[DifyService] 流式讀取錯誤:', {
+        error: readError.message,
+        stack: readError.stack,
+        url: requestUrl,
+      })
+      throw new Error(`流式讀取失敗: ${readError.message}`)
+    } finally {
+      // 確保讀取器被正確釋放
+      try {
+        if (reader) {
+          reader.releaseLock()
+        }
+      } catch (releaseError) {
+        console.warn('[DifyService] 釋放讀取器失敗:', releaseError)
+      }
     }
-  }
-  
-  // 流式響應結束後，確保 conversation_id 已保存
-  if (currentConversationId && currentConversationId !== persistedConversationId) {
-    saveConversationId(currentConversationId)
+
+    // 流式響應結束後，確保 conversation_id 已保存
+    if (currentConversationId && currentConversationId !== persistedConversationId) {
+      saveConversationId(currentConversationId)
+    }
+  } catch (error) {
+    // 詳細錯誤捕獲：打印完整的請求信息（隱藏敏感信息）
+    console.error('[DifyService] 請求異常:', {
+      error: error.message,
+      stack: error.stack,
+      url: requestUrl,
+      maskedApiKey: maskApiKey(API_KEY),
+      baseUrl: BASE_URL,
+      hasSignal: !!signal,
+      signalAborted: signal?.aborted || false,
+    })
+
+    // 重新拋出錯誤，讓調用者處理
+    throw error
   }
 }

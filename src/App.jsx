@@ -50,6 +50,7 @@ export default function App() {
         loop
         muted
         playsInline
+        webkitPlaysinline={true}
         className="fixed inset-0 h-full w-full object-cover"
         style={{ zIndex: 0, pointerEvents: 'none' }}
         onLoadedData={() => {
