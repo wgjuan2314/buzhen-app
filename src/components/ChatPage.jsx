@@ -1354,15 +1354,20 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                   )}
                 </button>
               ) : (
-                // 文字模式：輸入框
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="发消息给江予白..."
-                  rows={1}
-                  className="flex-1 h-10 max-h-32 resize-none rounded-full bg-white/10 border border-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/10 transition-all"
-                />
+                // 文字模式：輸入框 - 使用 flex items-center 包裝確保文字垂直居中
+                <div className="flex-1 flex items-center">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="发消息给江予白..."
+                    rows={1}
+                    className="w-full h-10 max-h-32 resize-none rounded-full bg-white/10 border border-white/5 px-4 py-0 text-sm leading-[40px] text-white placeholder:text-white/30 placeholder:leading-[40px] outline-none focus:border-white/10 transition-all"
+                    style={{
+                      lineHeight: '40px', // 嚴格垂直居中：高度 40px，行高 40px
+                    }}
+                  />
+                </div>
               )}
 
               {/* 右側：發送圖標 */}
@@ -1377,7 +1382,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                     filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))',
                   }}
                 >
-                  <Send className="h-6 w-6" strokeWidth={1.5} />
+                  <Send className="h-6 w-6" strokeWidth={1.5} fill="currentColor" />
                 </button>
               )}
             </div>
