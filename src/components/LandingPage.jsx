@@ -1,36 +1,24 @@
 import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { unlockAudio } from '../services/VoiceService'
+import { unlockAudioContext } from '../services/VoiceService'
 
 export default function LandingPage({ onEnterDream, onUnlockAudio }) {
   const { t, i18n } = useTranslation()
   const enterSoundRef = useRef(null)
   const [isExiting, setIsExiting] = useState(false)
-  const [audioUnlocked, setAudioUnlocked] = useState(false)
 
-  const handleEnter = async () => {
-    // 解鎖全局音頻權限（僅執行一次）
-    if (!audioUnlocked) {
-      setAudioUnlocked(true)
-      
-      // 1. 解鎖移動端音頻上下文（AudioContext）
+  const handleStart = async () => {
+    // 【核心】第一行就執行：物理激活全局音頻單例，繞過 iOS Safari 自動播放限制
+    unlockAudioContext()
+
+    // 立即調用 BGM 的 play() 方法進行"熱身"
+    if (onUnlockAudio) {
       try {
-        await unlockAudio()
-        console.log('[LandingPage] 音頻上下文已解鎖')
+        onUnlockAudio()
+        console.log('[LandingPage] BGM 已啟動（熱身）')
       } catch (error) {
-        console.warn('[LandingPage] 解鎖音頻上下文失敗:', error)
-      }
-      
-      // 2. 立即調用 BGM 的 play() 方法進行"熱身"
-      // 這會觸發音頻加載並激活音頻上下文，不等待 API 返回
-      if (onUnlockAudio) {
-        try {
-          onUnlockAudio()
-          console.log('[LandingPage] BGM 已啟動（熱身）')
-        } catch (error) {
-          console.warn('[LandingPage] BGM 啟動失敗:', error)
-        }
+        console.warn('[LandingPage] BGM 啟動失敗:', error)
       }
     }
 
@@ -106,7 +94,7 @@ export default function LandingPage({ onEnterDream, onUnlockAudio }) {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.8, ease: 'easeOut' }}
-              onClick={handleEnter}
+              onClick={handleStart}
               className="absolute rounded-full overflow-hidden transition-all hover:scale-110 active:scale-95"
               style={{
                 position: 'absolute',
