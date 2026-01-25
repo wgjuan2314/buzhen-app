@@ -98,8 +98,10 @@ export async function generateSpeech(text) {
 
     // 3. 核心：使用全局单例播放，不创建新对象，防止 iOS 拦截
     if (voiceInstance) {
+      // 【播放稳定性】先暂停并重置，确保切换音频源时不会出错
       voiceInstance.pause();
-      // 这里不重置 src 以保持通道活跃，直接替换
+      voiceInstance.load();
+      // 切换音频源
       voiceInstance.src = audioUrl;
       console.log("🔊 [VoiceService] 江予白说话中...");
       return voiceInstance.play();

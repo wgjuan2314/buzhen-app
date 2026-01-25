@@ -825,119 +825,57 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       return
     }
 
-    // 如果正在播放其他語音，先停止
-    if (playingAudioId && playingAudioId !== messageId) {
-      console.log('[ChatPage] 停止當前播放的語音:', playingAudioId)
-      const currentAudio = audioRefs.current[playingAudioId]
-      if (currentAudio) {
-        currentAudio.pause()
-        currentAudio.currentTime = 0
-      }
-    }
-
-    // 如果點擊的是當前播放的語音，則停止
-    if (playingAudioId === messageId) {
-      console.log('[ChatPage] 停止當前播放的語音')
-      const audio = audioRefs.current[messageId]
-      if (audio) {
-        audio.pause()
-        audio.currentTime = 0
-        setPlayingAudioId(null)
-      }
+    // 使用全局音頻單例，不依賴 audioRefs
+    const globalAudio = typeof window !== 'undefined' ? window.yubaiAudio : null
+    if (!globalAudio) {
+      console.error('[ChatPage] 全局音頻單例不存在')
       return
     }
 
+    // 如果點擊的是當前播放的語音，則停止
+    if (playingAudioId === messageId && !globalAudio.paused) {
+      console.log('[ChatPage] 停止當前播放的語音')
+      globalAudio.pause()
+      globalAudio.currentTime = 0
+      setPlayingAudioId(null)
+      return
+    }
+
+    // 如果正在播放其他語音，先停止
+    if (playingAudioId && playingAudioId !== messageId && !globalAudio.paused) {
+      console.log('[ChatPage] 停止當前播放的語音:', playingAudioId)
+      globalAudio.pause()
+      globalAudio.currentTime = 0
+    }
+
     try {
-      // 如果已有緩存的音頻，直接播放
-      if (audioRefs.current[messageId]) {
-        console.log('[ChatPage] 使用緩存的音頻，直接播放')
-        const audio = audioRefs.current[messageId]
-        audio.currentTime = 0
-        console.log('[ChatPage] 調用 audio.play() (緩存)...')
-        await audio.play()
-        console.log('[ChatPage] 緩存音頻播放成功')
+      // 直接使用 VoiceService.generateSpeech，驅動全局單例 window.yubaiAudio
+      console.log('[ChatPage] 生成並播放語音...')
+      const playPromise = await generateSpeech(content.trim())
+      
+      if (playPromise) {
+        console.log('[ChatPage] 語音播放成功')
         setPlayingAudioId(messageId)
         userInteractedRef.current = true
         setShowAudioPermissionTip(false)
-        return
+        
+        // 監聽播放結束
+        globalAudio.addEventListener('ended', () => {
+          console.log('[ChatPage] 語音播放結束')
+          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
+        }, { once: true })
+        
+        // 監聽播放錯誤
+        globalAudio.addEventListener('error', (e) => {
+          console.error('[ChatPage] 語音播放錯誤:', e)
+          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
+          setErrorMessageIds((prev) => new Set([...prev, messageId]))
+        }, { once: true })
       }
-
-      // 否則生成新語音（手動點擊時需要檢查單一播放鎖）
-      if (voiceRequestLockRef.current) {
-        console.log('[ChatPage] 已有語音正在請求或播放，請稍候')
-        return
-      }
-      
-      // 設置單一播放鎖
-      voiceRequestLockRef.current = true
-      currentRequestIdRef.current = messageId
-      
-      console.log('[ChatPage] 生成新語音（手動觸發）...')
-      const audio = await generateSpeech(content.trim())
-      console.log('[ChatPage] 語音生成成功，存儲到 audioRefs')
-      audioRefs.current[messageId] = audio
-      
-      // 獲取真實語音時長並更新
-      const updateDuration = () => {
-        if (audio.duration && isFinite(audio.duration)) {
-          const realDuration = Math.ceil(audio.duration)
-          setVoiceDurations((prev) => ({
-            ...prev,
-            [messageId]: realDuration,
-          }))
-          console.log('[ChatPage] 更新語音時長:', messageId, realDuration)
-        }
-      }
-      
-      // 嘗試立即獲取時長（如果已加載）
-      if (audio.readyState >= 1) {
-        updateDuration()
-      } else {
-        // 等待元數據加載完成
-        audio.addEventListener('loadedmetadata', updateDuration, { once: true })
-      }
-      
-      // 清除錯誤標記（手動觸發時允許重試）
-      setErrorMessageIds((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(messageId)
-        return newSet
-      })
-
-      audio.addEventListener('ended', () => {
-        console.log('[ChatPage] 手動播放的語音結束')
-        setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-        voiceRequestLockRef.current = false
-        currentRequestIdRef.current = null
-        if (audio.src.startsWith('blob:')) {
-          URL.revokeObjectURL(audio.src)
-        }
-      })
-
-      audio.addEventListener('error', (e) => {
-        console.error('[ChatPage] 手動播放的語音錯誤:', e)
-        setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-        setErrorMessageIds((prev) => new Set([...prev, messageId]))
-        voiceRequestLockRef.current = false
-        currentRequestIdRef.current = null
-        if (audio.src.startsWith('blob:')) {
-          URL.revokeObjectURL(audio.src)
-        }
-      })
-
-      // 立即播放
-      console.log('[ChatPage] 調用 audio.play() (新生成)...')
-      await audio.play()
-      console.log('[ChatPage] 新語音播放成功')
-      setPlayingAudioId(messageId)
-      userInteractedRef.current = true
-      setShowAudioPermissionTip(false)
     } catch (error) {
       // 靜默錯誤處理：只記錄不彈窗，僅在控制台打印一次
       console.error('[ChatPage] 語音播放失敗:', error)
       setErrorMessageIds((prev) => new Set([...prev, messageId]))
-      voiceRequestLockRef.current = false
-      currentRequestIdRef.current = null
       // 檢查是否為自動播放被攔截
       if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
         console.log('[ChatPage] 檢測到播放被攔截，顯示權限提示')
@@ -1417,149 +1355,23 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                                 return newSet
                               })
                               
-                              // 觸發語音自動播放
-                              const messageId = m.id
-                              const content = m.content?.trim()
-                              
-                              if (!content || content.length === 0) {
-                                return
-                              }
-                              
-                              // 檢查全局靜音狀態
-                              if (isMuted) {
-                                console.log('[ChatPage] 全局靜音已開啟，跳過自動播報')
-                                return
-                              }
-                              
-                              // 檢查自動播放開關
-                              if (!isAutoPlayEnabled) {
-                                return
-                              }
-                              
-                              // 單一播放鎖：確保同一時間只能有一個音頻在請求或播放
-                              if (voiceRequestLockRef.current) {
-                                console.log('[ChatPage] 語音請求已鎖定，跳過自動播放')
-                                return
-                              }
-                              
-                              // 防重複邏輯：確保同一條消息只在第一次出現時自動播放
-                              if (processedMessageIdsRef.current.has(messageId)) {
-                                console.log('[ChatPage] 消息已處理過，跳過自動播放:', messageId)
-                                return
-                              }
-                              
-                              // 檢查是否是最新的消息（最後一條 assistant 消息）
-                              setMessages((prevMessages) => {
-                                const assistantMessages = prevMessages.filter((msg) => msg.role === 'assistant')
-                                const isLatestMessage = assistantMessages.length > 0 && 
-                                  assistantMessages[assistantMessages.length - 1].id === messageId
-                                
-                                if (!isLatestMessage) {
-                                  console.log('[ChatPage] 不是最新消息，跳過自動播放:', messageId)
-                                  return prevMessages
+                              // 【自動播放邏輯】如果當前消息是 assistant 角色，立即調用 playVoice
+                              if (m.role === 'assistant') {
+                                // 檢查全局靜音狀態
+                                if (isMuted) {
+                                  console.log('[ChatPage] 全局靜音已開啟，跳過自動播報')
+                                  return
                                 }
                                 
-                                // 標記為已處理（防重複邏輯）
-                                processedMessageIdsRef.current.add(messageId)
+                                // 檢查自動播放開關
+                                if (!isAutoPlayEnabled) {
+                                  return
+                                }
                                 
-                                // 設置單一播放鎖
-                                voiceRequestLockRef.current = true
-                                currentRequestIdRef.current = messageId
-                                
-                                console.log('[ChatPage] 打字機效果完成，開始自動生成語音...')
-                                // 異步生成並播放語音
-                                generateSpeech(content)
-                                  .then((audio) => {
-                                    // 檢查是否還是當前請求（防止多個請求同時完成）
-                                    if (currentRequestIdRef.current !== messageId) {
-                                      console.log('[ChatPage] 請求已過期，跳過播放')
-                                      return
-                                    }
-                                    
-                                    console.log('[ChatPage] 語音生成成功，準備自動播放')
-                                    audioRefs.current[messageId] = audio
-                                    
-                                    // 獲取真實語音時長並更新
-                                    const updateDuration = () => {
-                                      if (audio.duration && isFinite(audio.duration)) {
-                                        const realDuration = Math.ceil(audio.duration)
-                                        setVoiceDurations((prev) => ({
-                                          ...prev,
-                                          [messageId]: realDuration,
-                                        }))
-                                        console.log('[ChatPage] 更新語音時長:', messageId, realDuration)
-                                      }
-                                    }
-                                    
-                                    // 嘗試立即獲取時長（如果已加載）
-                                    if (audio.readyState >= 1) {
-                                      updateDuration()
-                                    } else {
-                                      // 等待元數據加載完成
-                                      audio.addEventListener('loadedmetadata', updateDuration, { once: true })
-                                    }
-                                    
-                                    // 清除錯誤標記
-                                    setErrorMessageIds((prev) => {
-                                      const newSet = new Set(prev)
-                                      newSet.delete(messageId)
-                                      return newSet
-                                    })
-                                    
-                                    // 播放結束時清除播放狀態並清理 URL
-                                    audio.addEventListener('ended', () => {
-                                      console.log('[ChatPage] 語音播放結束，圖標恢復靜止')
-                                      setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-                                      voiceRequestLockRef.current = false
-                                      currentRequestIdRef.current = null
-                                      if (audio.src.startsWith('blob:')) {
-                                        URL.revokeObjectURL(audio.src)
-                                      }
-                                    })
-                                    
-                                    // 播放錯誤處理
-                                    audio.addEventListener('error', (e) => {
-                                      console.error('[ChatPage] Audio 播放錯誤:', e)
-                                      setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-                                      setErrorMessageIds((prev) => new Set([...prev, messageId]))
-                                      voiceRequestLockRef.current = false
-                                      currentRequestIdRef.current = null
-                                      if (audio.src.startsWith('blob:')) {
-                                        URL.revokeObjectURL(audio.src)
-                                      }
-                                    })
-                                    
-                                    // 立即播放
-                                    console.log('[ChatPage] 調用 audio.play()，圖標開始跳動...')
-                                    audio.play()
-                                      .then(() => {
-                                        console.log('[ChatPage] 語音播放成功，圖標跳動中')
-                                        setPlayingAudioId(messageId)
-                                        userInteractedRef.current = true
-                                      })
-                                      .catch((error) => {
-                                        console.error('[ChatPage] 語音播放失敗:', error)
-                                        setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-                                        voiceRequestLockRef.current = false
-                                        currentRequestIdRef.current = null
-                                        if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
-                                          console.log('[ChatPage] 檢測到自動播放被攔截，顯示權限提示')
-                                          setShowAudioPermissionTip(true)
-                                        }
-                                      })
-                                  })
-                                  .catch((error) => {
-                                    // 靜默錯誤處理：只記錄不彈窗
-                                    if (currentRequestIdRef.current === messageId) {
-                                      console.error('[ChatPage] 語音生成失敗:', error)
-                                      setErrorMessageIds((prev) => new Set([...prev, messageId]))
-                                    }
-                                    voiceRequestLockRef.current = false
-                                    currentRequestIdRef.current = null
-                                  })
-                                
-                                return prevMessages
-                              })
+                                // 直接調用 playVoice，使用全局單例 window.yubaiAudio
+                                console.log('[ChatPage] 打字機效果完成，自動播放語音...')
+                                playVoice(m.id, m.content)
+                              }
                             }}
                           />
                         ) : m.role === 'assistant' && m.content ? (
