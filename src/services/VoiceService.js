@@ -13,7 +13,7 @@ if (typeof window !== 'undefined') {
     window.yubaiBgm = new Audio();
     window.yubaiBgm.name = "BgmInstance";
     window.yubaiBgm.loop = true;
-    window.yubaiBgm.volume = 0.3; // 【iOS 音量平衡】BGM 温和不吵闹
+    window.yubaiBgm.volume = 0.2; // 【iOS 音量平衡】BGM 温和不吵闹（微调）
   }
 }
 

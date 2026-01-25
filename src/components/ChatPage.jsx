@@ -1058,25 +1058,24 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         )}
       </AnimatePresence>
 
-      {/* 主內容區域 */}
+      {/* 主內容區域 - 使用 Flexbox 布局，確保 iOS Safari 地址欄彈出時布局準確 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="relative min-h-dvh"
+        className="flex flex-col h-dvh overflow-hidden"
         style={{
           backdropFilter: 'blur(3px)',
           backgroundColor: 'rgba(255, 255, 255, 0.1)', // 輕薄玻璃質感，讓視頻背景更透亮
         }}
       >
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-          {/* Messages - 添加 padding-top 防止被固定頂部欄遮擋，添加 padding-bottom 防止被底部輸入框遮擋 */}
+        <div className="mx-auto flex h-full w-full max-w-md flex-col">
+          {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動 */}
           <div
             ref={listRef}
             className="flex-1 overflow-y-auto px-4 pt-[100px] py-4"
             style={{
               backgroundColor: 'transparent',
-              paddingBottom: 'calc(120px + env(safe-area-inset-bottom))', // 適配安全區域，確保消息不被底部輸入框遮擋
             }}
           >
             <div className="flex flex-col space-y-6">
@@ -1256,9 +1255,9 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
             </div>
           </div>
 
-        {/* Input - 固定底部容器 */}
+        {/* Input - 底部輸入框容器，使用 shrink-0 防止被壓縮 */}
         <div
-          className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/60 to-transparent backdrop-blur-xl"
+          className="shrink-0 z-50 bg-gradient-to-t from-black/60 to-transparent backdrop-blur-xl"
           style={{
             paddingTop: '1rem',
             paddingBottom: `calc(1rem + env(safe-area-inset-bottom))`, // 適配手機安全區域
