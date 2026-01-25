@@ -1,13 +1,39 @@
 import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import { unlockAudio } from '../services/VoiceService'
 
-export default function LandingPage({ onEnterDream }) {
+export default function LandingPage({ onEnterDream, onUnlockAudio }) {
   const { t, i18n } = useTranslation()
   const enterSoundRef = useRef(null)
   const [isExiting, setIsExiting] = useState(false)
+  const [audioUnlocked, setAudioUnlocked] = useState(false)
 
-  const handleEnter = () => {
+  const handleEnter = async () => {
+    // 解鎖全局音頻權限（僅執行一次）
+    if (!audioUnlocked) {
+      setAudioUnlocked(true)
+      
+      // 1. 解鎖移動端音頻上下文（AudioContext）
+      try {
+        await unlockAudio()
+        console.log('[LandingPage] 音頻上下文已解鎖')
+      } catch (error) {
+        console.warn('[LandingPage] 解鎖音頻上下文失敗:', error)
+      }
+      
+      // 2. 立即調用 BGM 的 play() 方法進行"熱身"
+      // 這會觸發音頻加載並激活音頻上下文，不等待 API 返回
+      if (onUnlockAudio) {
+        try {
+          onUnlockAudio()
+          console.log('[LandingPage] BGM 已啟動（熱身）')
+        } catch (error) {
+          console.warn('[LandingPage] BGM 啟動失敗:', error)
+        }
+      }
+    }
+
     // 播放入夢音效
     if (enterSoundRef.current) {
       enterSoundRef.current.play().catch(() => {})

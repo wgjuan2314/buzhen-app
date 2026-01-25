@@ -72,7 +72,7 @@ export default function App() {
       <div className="relative z-10 min-h-dvh">
         <AnimatePresence mode="wait">
           {!showChat ? (
-            <LandingPage key="landing" onEnterDream={handleEnterDream} />
+            <LandingPage key="landing" onEnterDream={handleEnterDream} onUnlockAudio={startBGM} />
           ) : (
             <ChatPage
               key="chat"

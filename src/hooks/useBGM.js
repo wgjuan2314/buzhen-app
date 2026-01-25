@@ -105,11 +105,40 @@ export function useBGM(src = '/assets/bgm.mp3') {
     }
   }
 
-  const startBGM = () => {
-    if (!audioRef.current || isMuted) return
+  /**
+   * 熱身：提前激活音頻上下文，不等待載入完成
+   * 這在用戶點擊"入梦"按鈕時調用，用於解鎖移動端音頻權限
+   */
+  const warmup = () => {
+    if (!audioRef.current) return
     
+    // 立即嘗試播放，即使未載入完成
+    // 這會觸發瀏覽器開始加載音頻，並激活音頻上下文
+    audioRef.current.play().catch((error) => {
+      // 忽略錯誤，因為這只是"熱身"，可能音頻還沒載入完成
+      console.log('[useBGM] 熱身播放嘗試（可能音頻未載入）:', error.message)
+    })
+    
+    console.log('[useBGM] 音頻熱身完成')
+  }
+
+  const startBGM = () => {
+    if (!audioRef.current) return
+    
+    // 如果已靜音，不啟動
+    if (isMuted) {
+      console.log('[useBGM] 當前已靜音，跳過啟動')
+      return
+    }
+    
+    // 如果還沒載入，先嘗試播放觸發載入，然後等待載入完成
     if (!isLoaded) {
-      // 如果還沒載入，等待載入完成後再播放
+      // 立即嘗試播放（觸發載入）
+      audioRef.current.play().catch(() => {
+        // 忽略錯誤，繼續等待載入
+      })
+      
+      // 等待載入完成後再淡入
       const checkLoaded = setInterval(() => {
         if (isLoaded && audioRef.current && !isMuted) {
           audioRef.current.play().catch(() => {})
@@ -117,12 +146,16 @@ export function useBGM(src = '/assets/bgm.mp3') {
           clearInterval(checkLoaded)
         }
       }, 100)
+      
       // 設置超時，避免無限等待
       setTimeout(() => clearInterval(checkLoaded), 5000)
       return
     }
     
-    audioRef.current.play().catch(() => {})
+    // 已載入，直接播放並淡入
+    audioRef.current.play().catch((error) => {
+      console.warn('[useBGM] 播放失敗:', error.message)
+    })
     fadeIn()
   }
 
@@ -130,6 +163,7 @@ export function useBGM(src = '/assets/bgm.mp3') {
     isMuted,
     toggleMute,
     startBGM,
+    warmup,
     isLoaded,
   }
 }

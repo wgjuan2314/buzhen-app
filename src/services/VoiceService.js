@@ -4,6 +4,34 @@ const GROUP_ID = '2007418972814713648'
 const VOICE_ID = 'ttv-voice-2026010417484826-crpUwhCe'
 
 /**
+ * 解鎖移動端音頻上下文（AudioContext）
+ * 通過播放一段靜音音頻來激活音頻權限
+ * 這需要在用戶交互時調用（如點擊按鈕）
+ */
+export async function unlockAudio() {
+  try {
+    // 創建一個臨時的靜音 Audio 對象
+    // 使用 data URI 創建一個極短的靜音音頻（1秒，44.1kHz，單聲道）
+    const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=')
+    silentAudio.volume = 0 // 確保完全靜音
+    
+    // 嘗試播放靜音音頻來解鎖音頻上下文
+    await silentAudio.play()
+    
+    // 立即暫停（我們只需要激活音頻上下文）
+    silentAudio.pause()
+    silentAudio.src = '' // 清理資源
+    
+    console.log('[VoiceService] 音頻上下文已解鎖')
+    return true
+  } catch (error) {
+    console.warn('[VoiceService] 解鎖音頻上下文失敗（可能已解鎖）:', error.message)
+    // 即使失敗也不拋出錯誤，因為可能已經解鎖了
+    return false
+  }
+}
+
+/**
  * 終極修復版：生成語音並返回 Audio 對象
  */
 export async function generateSpeech(text) {
