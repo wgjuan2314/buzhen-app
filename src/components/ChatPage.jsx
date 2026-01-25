@@ -338,9 +338,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
   const listRef = useRef(null)
   const lastStreamingIdRef = useRef(null) // 記錄最後一個流式輸出的消息 ID
   const autoPlayTimeoutRef = useRef(null) // 防抖：記錄自動播放的 timeout
-  const processedMessageIdsRef = useRef(new Set()) // 記錄已處理過自動播放的消息 ID
-  const voiceRequestLockRef = useRef(false) // 單一播放鎖：確保同一時間只能有一個音頻在請求或播放
-  const currentRequestIdRef = useRef(null) // 當前正在請求的消息 ID
+  const autoPlayedIdsRef = useRef(new Set()) // 【狀態鎖定】記錄已經自動播放過的消息 ID，防止重複觸發
   const sendMessageRef = useRef(null) // 存儲最新的 sendMessage 函數
 
   const canSend = useMemo(() => input.trim().length > 0 && !isStreaming, [input, isStreaming])
@@ -458,151 +456,6 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       return () => clearTimeout(timer)
     }
   }, [hasTriggeredGreeting, onAutoGreeting, i18n.language])
-  
-  // 禁止歷史請求：頁面加載時，禁止所有歷史消息自動發起語音請求
-  useEffect(() => {
-    processedMessageIdsRef.current.clear()
-    voiceRequestLockRef.current = false
-    currentRequestIdRef.current = null
-  }, [])
-
-  // 強制開啟新消息自動朗讀：專門'盯著' messages 列表
-  useEffect(() => {
-    // 檢查自動播放開關
-    if (!isAutoPlayEnabled) {
-      return
-    }
-
-    // 檢查全局靜音狀態
-    if (isMuted) {
-      return
-    }
-
-    // 檢查單一播放鎖
-    if (voiceRequestLockRef.current) {
-      return
-    }
-
-    // 檢查是否正在流式輸出
-    if (isStreaming) {
-      return
-    }
-
-    // 獲取最新的 assistant 消息
-    const assistantMessages = messages.filter((m) => m.role === 'assistant')
-    if (assistantMessages.length === 0) {
-      return
-    }
-
-    const latestMessage = assistantMessages[assistantMessages.length - 1]
-    const messageId = latestMessage.id
-    const content = latestMessage.content?.trim()
-
-    // 檢查消息是否有內容
-    if (!content || content.length === 0) {
-      return
-    }
-
-    // 防重複邏輯：檢查是否已經處理過這條消息
-    if (processedMessageIdsRef.current.has(messageId)) {
-      return
-    }
-
-    // 標記為已處理
-    processedMessageIdsRef.current.add(messageId)
-
-    // 設置單一播放鎖
-    voiceRequestLockRef.current = true
-    currentRequestIdRef.current = messageId
-
-    console.log('[ChatPage] 檢測到新消息，開始自動朗讀，ID:', messageId)
-
-    // 自動生成並播放語音
-    generateSpeech(content)
-      .then((audio) => {
-        // 檢查是否還是當前請求（防止多個請求同時完成）
-        if (currentRequestIdRef.current !== messageId) {
-          console.log('[ChatPage] 請求已過期，跳過播放')
-          return
-        }
-
-        console.log('[ChatPage] 語音生成成功，準備自動播放')
-        audioRefs.current[messageId] = audio
-
-        // 獲取真實語音時長並更新
-        const updateDuration = () => {
-          if (audio.duration && isFinite(audio.duration)) {
-            const realDuration = Math.ceil(audio.duration)
-            setVoiceDurations((prev) => ({
-              ...prev,
-              [messageId]: realDuration,
-            }))
-            console.log('[ChatPage] 更新語音時長:', messageId, realDuration)
-          }
-        }
-        
-        // 嘗試立即獲取時長（如果已加載）
-        if (audio.readyState >= 1) {
-          updateDuration()
-        } else {
-          // 等待元數據加載完成
-          audio.addEventListener('loadedmetadata', updateDuration, { once: true })
-        }
-
-        // 清除錯誤標記
-        setErrorMessageIds((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(messageId)
-          return newSet
-        })
-
-        // 播放結束時清除播放狀態並清理 URL（圖標自動停止）
-        audio.addEventListener('ended', () => {
-          console.log('[ChatPage] 語音播放結束，圖標恢復靜止')
-          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-          voiceRequestLockRef.current = false
-          currentRequestIdRef.current = null
-          if (audio.src.startsWith('blob:')) {
-            URL.revokeObjectURL(audio.src)
-          }
-        })
-
-        // 播放錯誤處理
-        audio.addEventListener('error', (e) => {
-          console.error('[ChatPage] Audio 播放錯誤:', e)
-          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-          setErrorMessageIds((prev) => new Set([...prev, messageId]))
-          voiceRequestLockRef.current = false
-          currentRequestIdRef.current = null
-          if (audio.src.startsWith('blob:')) {
-            URL.revokeObjectURL(audio.src)
-          }
-        })
-
-        // 立即播放（圖標自動跳動）
-        console.log('[ChatPage] 調用 audio.play()，圖標開始跳動...')
-        audio.play()
-          .then(() => {
-            console.log('[ChatPage] 語音播放成功，圖標跳動中')
-            setPlayingAudioId(messageId) // 狀態聯動：設置播放狀態，圖標自動跳動
-            userInteractedRef.current = true
-          })
-          .catch((error) => {
-            // 解決瀏覽器限制：靜默記錄，不彈窗
-            console.log('[ChatPage] 自動播放被瀏覽器攔截（靜默記錄）:', error.name)
-            setPlayingAudioId((prev) => (prev === messageId ? null : prev)) // 播放失敗，圖標恢復靜止
-            voiceRequestLockRef.current = false
-            currentRequestIdRef.current = null
-          })
-      })
-      .catch((error) => {
-        // 靜默錯誤處理：只記錄不彈窗
-        console.error('[ChatPage] 語音生成失敗（靜默記錄）:', error)
-        setErrorMessageIds((prev) => new Set([...prev, messageId]))
-        voiceRequestLockRef.current = false
-        currentRequestIdRef.current = null
-      })
-  }, [messages, isMuted, isStreaming, isAutoPlayEnabled])
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -1355,8 +1208,16 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                                 return newSet
                               })
                               
-                              // 【自動播放邏輯】如果當前消息是 assistant 角色，立即調用 playVoice
+                              // 【唯一自動播放入口】如果當前消息是 assistant 角色，立即調用 playVoice
                               if (m.role === 'assistant') {
+                                const messageId = m.id
+                                
+                                // 【狀態鎖定】檢查該消息是否已經自動播放過，防止重複觸發
+                                if (autoPlayedIdsRef.current.has(messageId)) {
+                                  console.log('[ChatPage] 消息已自動播放過，跳過重複觸發:', messageId)
+                                  return
+                                }
+                                
                                 // 檢查全局靜音狀態
                                 if (isMuted) {
                                   console.log('[ChatPage] 全局靜音已開啟，跳過自動播報')
@@ -1368,9 +1229,12 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                                   return
                                 }
                                 
+                                // 標記為已自動播放，防止重複觸發
+                                autoPlayedIdsRef.current.add(messageId)
+                                
                                 // 直接調用 playVoice，使用全局單例 window.yubaiAudio
-                                console.log('[ChatPage] 打字機效果完成，自動播放語音...')
-                                playVoice(m.id, m.content)
+                                console.log('[ChatPage] 打字機效果完成，自動播放語音...', messageId)
+                                playVoice(messageId, m.content)
                               }
                             }}
                           />
