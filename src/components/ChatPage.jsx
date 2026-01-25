@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Settings, CirclePlus, Play, Mic, Keyboard, Send } from 'lucide-react'
 import { streamChat } from '../services/DifyService'
-import { generateSpeech } from '../services/VoiceService'
+import { generateSpeech, setBgmState } from '../services/VoiceService'
 import IntroCard from './IntroCard'
 import avatarImg from '../assets/avatar.jpg'
 import { useChatStore } from '../store/chatStore'
@@ -273,10 +273,15 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
   // 保存 BGM 設置到 localStorage 並同步狀態
   const handleBGMToggle = useCallback(() => {
     try {
-      // 直接調用 toggleMute 切換狀態
-      toggleMute()
-      // 保存新狀態到 localStorage
       const newMuted = !isMuted
+      
+      // 【邏輯解耦】僅調用 VoiceService.setBgmState 管理 BGM，不影響語音播放
+      setBgmState(!newMuted) // newMuted 為 true 時關閉 BGM，false 時開啟
+      
+      // 同步更新本地狀態（用於 UI 顯示）
+      toggleMute()
+      
+      // 保存新狀態到 localStorage
       localStorage.setItem('chat_bgm_enabled', String(!newMuted))
     } catch (error) {
       console.error('[ChatPage] 保存 BGM 設置失敗:', error)
@@ -1218,11 +1223,8 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                                   return
                                 }
                                 
-                                // 檢查全局靜音狀態
-                                if (isMuted) {
-                                  console.log('[ChatPage] 全局靜音已開啟，跳過自動播報')
-                                  return
-                                }
+                                // 【邏輯解耦】isMuted 僅控制 BGM，不影響語音自動播放
+                                // 已刪除對 isMuted 的檢查，確保關閉 BGM 後語音依然自動播放
                                 
                                 // 檢查自動播放開關
                                 if (!isAutoPlayEnabled) {

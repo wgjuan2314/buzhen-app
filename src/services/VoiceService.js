@@ -7,11 +7,13 @@ if (typeof window !== 'undefined') {
   if (!window.yubaiAudio) {
     window.yubaiAudio = new Audio();
     window.yubaiAudio.name = "VoiceInstance";
+    window.yubaiAudio.volume = 1.0; // 【iOS 音量平衡】语音清晰大声
   }
   if (!window.yubaiBgm) {
     window.yubaiBgm = new Audio();
     window.yubaiBgm.name = "BgmInstance";
-    window.yubaiBgm.loop = true; 
+    window.yubaiBgm.loop = true;
+    window.yubaiBgm.volume = 0.3; // 【iOS 音量平衡】BGM 温和不吵闹
   }
 }
 
@@ -49,6 +51,35 @@ export const unlockAudioContext = () => {
   Promise.all([p1, p2]).then(() => {
     console.log("✅ [VoiceService] iOS 语音/BGM 双通道已解锁");
   }).catch(e => console.warn("音频解锁受限:", e.message));
+};
+
+/**
+ * 【BGM 控制】管理背景音乐的播放与暂停
+ * @param {boolean} enabled - true 为播放，false 为暂停
+ */
+export const setBgmState = (enabled) => {
+  if (!bgmInstance) return;
+  
+  // 如果 BGM 还没有设置 src，先设置
+  if (!bgmInstance.src || bgmInstance.src === '') {
+    bgmInstance.src = '/assets/bgm.mp3';
+  }
+  
+  if (enabled) {
+    // 播放 BGM
+    if (bgmInstance.paused) {
+      bgmInstance.play().catch((error) => {
+        console.warn('[VoiceService] BGM 播放失败:', error.message);
+      });
+      console.log("🔊 [VoiceService] BGM 已开启");
+    }
+  } else {
+    // 暂停 BGM
+    if (!bgmInstance.paused) {
+      bgmInstance.pause();
+      console.log("🔇 [VoiceService] BGM 已关闭");
+    }
+  }
 };
 
 /**
