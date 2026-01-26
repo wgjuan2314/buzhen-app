@@ -37,7 +37,7 @@ const getEnv = (name) => {
  */
 export const unlockAudioContext = () => {
   if (!voiceInstance || !bgmInstance) return;
-  console.log("🔊 [VoiceService] 执行全通道静音预热...");
+  console.log("🔊 [Somnium] 执行全通道静音预热...");
   
   const silentSrc = "data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A";
   
@@ -49,7 +49,7 @@ export const unlockAudioContext = () => {
   const p2 = bgmInstance.play().then(() => bgmInstance.pause());
   
   Promise.all([p1, p2]).then(() => {
-    console.log("✅ [VoiceService] iOS 语音/BGM 双通道已解锁");
+    console.log("✅ [Somnium] iOS 语音/BGM 双通道已解锁");
   }).catch(e => console.warn("音频解锁受限:", e.message));
 };
 
@@ -69,15 +69,15 @@ export const setBgmState = (enabled) => {
     // 播放 BGM
     if (bgmInstance.paused) {
       bgmInstance.play().catch((error) => {
-        console.warn('[VoiceService] BGM 播放失败:', error.message);
+        console.warn('[Somnium] BGM 播放失败:', error.message);
       });
-      console.log("🔊 [VoiceService] BGM 已开启");
+      console.log("🔊 [Somnium] BGM 已开启");
     }
   } else {
     // 暂停 BGM
     if (!bgmInstance.paused) {
       bgmInstance.pause();
-      console.log("🔇 [VoiceService] BGM 已关闭");
+      console.log("🔇 [Somnium] BGM 已关闭");
     }
   }
 };
@@ -135,11 +135,11 @@ export async function generateSpeech(text) {
       voiceInstance.load(); // 重置音频元素
       // 切换音频源
       voiceInstance.src = audioUrl;
-      console.log("🔊 [VoiceService] 江予白说话中...");
+      console.log("🔊 [Somnium] 江予白说话中...");
       // 返回 play() 的 Promise，以便在调用处能捕获播放状态
       return voiceInstance.play();
     }
   } catch (error) {
-    console.error('[VoiceService] 播放失败:', error);
+    console.error('[Somnium] 播放失败:', error);
   }
 }

@@ -776,8 +776,8 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         </div>
       </div>
 
-      {/* 層級二：頂部懸浮內容區 (Top Floating Content) */}
-      <div className="fixed left-0 top-0 z-40 w-full pt-[env(safe-area-inset-top)] mt-[36px]">
+      {/* 層級二：頂部懸浮內容區 (Top Floating Content) - z-index: 50 確保在遮罩層之上 */}
+      <div className="fixed left-0 top-0 z-50 w-full pt-[env(safe-area-inset-top)] mt-[36px]">
         <div className="mx-auto flex max-w-md items-center gap-3 px-4">
           {/* 左側膠囊：角色信息 */}
           <div className="flex shrink-0 min-w-[140px] h-12 items-center gap-2 rounded-full bg-black/30 px-2 py-2 backdrop-blur-lg">
@@ -1069,11 +1069,20 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
           backgroundColor: 'rgba(255, 255, 255, 0.1)', // 輕薄玻璃質感，讓視頻背景更透亮
         }}
       >
-        <div className="mx-auto flex h-full w-full max-w-md flex-col">
-          {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動 */}
+        <div className="mx-auto flex h-full w-full max-w-md flex-col relative">
+          {/* 頂部漸變遮罩層 - 極致清爽 UI：從純黑色開始，在 20px 處迅速過渡到透明，確保文字像消失在深淵中一樣自然沒入 */}
+          <div
+            className="absolute top-0 left-0 right-0 z-40 pointer-events-none"
+            style={{
+              height: '160px',
+              background: 'linear-gradient(to bottom, #0A0A0B 0%, #0A0A0B 12.5%, rgba(10, 10, 11, 0.8) 20%, rgba(10, 10, 11, 0.4) 40%, rgba(10, 10, 11, 0.1) 60%, transparent 100%)',
+            }}
+          />
+          
+          {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動，z-index: 10 確保在遮罩層之下 */}
           <div
             ref={listRef}
-            className="flex-1 overflow-y-auto px-4 pt-[100px] py-4"
+            className="flex-1 overflow-y-auto px-4 pt-32 py-4 relative z-10"
             style={{
               backgroundColor: 'transparent',
             }}
