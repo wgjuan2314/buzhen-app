@@ -89,50 +89,29 @@ export default function StartPage({ onEnterDream, onUnlockAudio }) {
               />
             ))}
 
-            {/* 入夢按鈕 - 圓形與流光，絕對定位重合於中心 */}
+            {/* 夢境原點 - MetaSight 細膩風格，完美圓形，呼吸動效 */}
             <motion.button
               initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5, duration: 0.8, ease: 'easeOut' }}
-              onClick={handleStart}
-              className="absolute rounded-full overflow-hidden transition-all hover:scale-110 active:scale-95"
-              style={{
-                position: 'absolute',
-                width: '110px',
-                height: '110px',
-                top: '50%',
-                left: '50%',
-                marginTop: '-55px',
-                marginLeft: '-55px',
-                background: 'linear-gradient(to top right, rgba(255, 255, 255, 0.2), rgba(147, 197, 253, 0.3))',
-                backdropFilter: 'blur(12px)',
-                boxShadow: '0 0 30px rgba(255, 255, 255, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                zIndex: 10,
+              animate={{ 
+                opacity: [0.7, 0.9, 0.7], 
+                scale: [1, 1.03, 1] 
               }}
+              transition={{ 
+                delay: 0.5,
+                duration: 4,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+              whileHover={{ 
+                scale: 1.1, 
+                backgroundColor: "rgba(255,255,255,0.15)", 
+                borderColor: "rgba(255,255,255,0.4)" 
+              }}
+              onClick={handleStart}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex h-[90px] w-[90px] items-center justify-center rounded-full bg-white/[0.05] backdrop-blur-[30px] border-[0.5px] border-white/20 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] z-10"
             >
-              {/* 流光效果 - 光線掃過 */}
-              <motion.div
-                className="absolute inset-0"
-                style={{
-                  background: 'linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.5) 45%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
-                  transform: 'rotate(-45deg)',
-                  width: '200%',
-                  height: '200%',
-                }}
-                animate={{
-                  x: ['-150%', '150%'],
-                }}
-                transition={{
-                  duration: 2.5,
-                  repeat: Infinity,
-                  repeatDelay: 1.5,
-                  ease: 'easeInOut',
-                }}
-              />
-
               {/* 按鈕文字 */}
-              <span className="relative z-10 flex h-full w-full items-center justify-center text-base font-light text-white">
+              <span className="relative z-10 text-white font-light tracking-[0.5em] text-[14px] ml-[0.5em]">
                 {i18n.language === 'zh-CN' ? '入梦' : 'Dream'}
               </span>
             </motion.button>

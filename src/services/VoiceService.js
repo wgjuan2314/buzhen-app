@@ -89,7 +89,7 @@ export async function generateSpeech(text) {
   // 这里的 Key 会优先读取 Zeabur 设置的环境变量，如果没有则回退到你刚才提供的硬编码
   const API_KEY = getEnv('VITE_MINIMAX_API_KEY') || 'sk-api-Sy6SXYeKULXtll8z482xG_dRBdOjD_VdTD8-pBjm1dVOmi7WbY0dX65uMgBl5LAJDXWYbdFqiwUYYOiQZwyXs8yJDlBOYARqZaOa70r_uAAEdGxpaD5UOA4';
   const GROUP_ID = getEnv('VITE_MINIMAX_GROUP_ID') || '2007418972814713648';
-  const VOICE_ID = getEnv('VITE_MINIMAX_VOICE_ID') || 'ttv-voice-2026010417484826-crpUwhCe';
+  const VOICE_ID = getEnv('VITE_MINIMAX_VOICE_ID') || 'ttv-voice-2026010417565226-BIc2kWY0';
 
   if (!text) return;
 
@@ -104,6 +104,13 @@ export async function generateSpeech(text) {
   // 2. 构造请求 (直接请求 MiniMax 官网，不走本地代理)
   const url = `https://api.minimax.chat/v1/text_to_speech?GroupId=${GROUP_ID}`;
 
+  // 【強制驗證】硬編碼測試 ID，排除環境變量讀取失敗的可能性
+  const testVoiceId = 'ttv-voice-2026010417565226-BIc2kWY0';
+  
+  // 【調試日誌】打印當前使用的 voice_id
+  console.log('🔍 [MiniMax] 當前使用的 voice_id:', VOICE_ID);
+  console.log("DEBUG - 發送的最終ID:", testVoiceId);
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -114,7 +121,7 @@ export async function generateSpeech(text) {
       body: JSON.stringify({
         model: "speech-01",
         text: cleanedText,
-        voice_id: VOICE_ID,
+        voice_id: testVoiceId,
         speed: 1.0,
         vol: 1.0,
         pitch: 0,
