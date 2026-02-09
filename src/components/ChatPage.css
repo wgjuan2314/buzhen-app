@@ -348,27 +348,25 @@
 }
 
 /* 输入区域底部背景 */
-/* 输入区域底座 (Input Area) - 最后的视觉优化：底层纯白 */
+/* 输入区域底座 (Input Area) - 像素级还原：底座背景色 */
 .input-area {
-  background: #FFFFFF; /* 修改容器背景：将底部输入区域的最外层容器的 background 颜色修改为纯白色 #FFFFFF */
+  background: #FFFFFF; /* 底座：将外层 .input-area 背景色设为纯白色 #FFFFFF */
   padding-bottom: env(safe-area-inset-bottom); /* 确保输入框与底部边缘有足够的安全区域留白 */
 }
 
-/* 输入框容器 (Input Wrapper) - 像素级还原：48px 高度粉色大胶囊 */
+/* 输入框容器 (Input Wrapper) - 像素级还原：重构底部输入框 */
 .input-wrapper {
-  /* 【核心】将 .input-wrapper 的背景色修改为实色 #F9EDEB */
-  background: #F9EDEB;
-  /* 【圆角】容器尺寸与颜色：圆角 border-radius: 24px（高度的一半，保持完美圆角） */
-  border-radius: 24px;
-  /* 【尺寸】容器尺寸与颜色：将粉色输入框容器的高度设定为 48px */
+  /* 容器样式：高度锁定 48px，背景色 #F9EDEB，圆角 24px */
+  background: #F9EDEB; /* 容器样式：背景色 #F9EDEB */
+  border-radius: 24px; /* 容器样式：圆角 24px */
   width: 100%;
-  height: 48px; /* 容器尺寸与颜色：将粉色输入框容器的高度设定为 48px */
+  height: 48px; /* 容器样式：高度锁定 48px */
   min-height: 48px; /* 最小高度锁定 */
-  /* 【内边距】内容布局与文字：左右内边距 padding 设为 0 16px，给内部组件留出呼吸空间 */
-  padding: 0 16px; /* 内容布局与文字：左右内边距 padding 设为 0 16px，给内部组件留出呼吸空间 */
-  /* 布局逻辑：使用 display: flex; align-items: center; 确保语音图标、输入文字、发送图标垂直居中 */
+  /* 容器样式：确保左右内边距各为 12px，让图标和文字不顶格 */
+  padding: 0 12px; /* 容器样式：确保左右内边距各为 12px，让图标和文字不顶格 */
+  /* 容器样式：display 设为 flex 且 align-items: center */
   display: flex;
-  align-items: center; /* 内容布局与文字：使用 display: flex; align-items: center; 确保垂直居中 */
+  align-items: center; /* 容器样式：display 设为 flex 且 align-items: center */
   gap: 8px; /* 内部元素间距 */
   border: none;
   box-sizing: border-box;
@@ -408,9 +406,9 @@
   font-size: 14px; /* 字号调整为 14px，适应 48px 高度 */
 }
 
-/* 输入框占位符颜色 - 内容布局与文字：输入占位符文字 placeholder 颜色锁定为 #999999 */
+/* 输入框占位符颜色 - 像素级还原：文字 placeholder 颜色 */
 .input-wrapper .input-textarea::placeholder {
-  color: #999999; /* 内容布局与文字：输入占位符文字 placeholder 颜色锁定为 #999999 */
+  color: #999999; /* 文字：placeholder 颜色设为 #999999 */
   line-height: 48px; /* 文字对齐：确保 placeholder 在 48px 高度下也能正常显示 */
 }
 
