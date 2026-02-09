@@ -348,34 +348,122 @@
 }
 
 /* 输入区域底部背景 */
+/* 输入区域底座 (Input Area) - 最后的视觉优化：底层纯白 */
 .input-area {
-  background: #F9EDEB; /* 容器底座：奶酪色实色背景 */
+  background: #FFFFFF; /* 修改容器背景：将底部输入区域的最外层容器的 background 颜色修改为纯白色 #FFFFFF */
+  padding-bottom: env(safe-area-inset-bottom); /* 确保输入框与底部边缘有足够的安全区域留白 */
 }
 
-/* 输入框容器 - Rectangle 10 还原 */
+/* 输入框容器 (Input Wrapper) - 像素级还原：48px 高度粉色大胶囊 */
 .input-wrapper {
-  background: rgba(255, 255, 255, 0.8); /* 背景：rgba(255, 255, 255, 0.8) */
-  border-radius: 25px; /* 圆角 25px */
-  height: auto;
+  /* 【核心】将 .input-wrapper 的背景色修改为实色 #F9EDEB */
+  background: #F9EDEB;
+  /* 【圆角】容器尺寸与颜色：圆角 border-radius: 24px（高度的一半，保持完美圆角） */
+  border-radius: 24px;
+  /* 【尺寸】容器尺寸与颜色：将粉色输入框容器的高度设定为 48px */
+  width: 100%;
+  height: 48px; /* 容器尺寸与颜色：将粉色输入框容器的高度设定为 48px */
+  min-height: 48px; /* 最小高度锁定 */
+  /* 【内边距】内容布局与文字：左右内边距 padding 设为 0 16px，给内部组件留出呼吸空间 */
+  padding: 0 16px; /* 内容布局与文字：左右内边距 padding 设为 0 16px，给内部组件留出呼吸空间 */
+  /* 布局逻辑：使用 display: flex; align-items: center; 确保语音图标、输入文字、发送图标垂直居中 */
+  display: flex;
+  align-items: center; /* 内容布局与文字：使用 display: flex; align-items: center; 确保垂直居中 */
+  gap: 8px; /* 内部元素间距 */
   border: none;
+  box-sizing: border-box;
 }
 
-/* 输入框占位符颜色 - #A45E71 的透明版 */
-.input-wrapper textarea::placeholder {
-  color: rgba(164, 94, 113, 0.5); /* #A45E71 的透明版 */
+/* 语音切换按钮 - 固定宽度，精致化尺寸 */
+.voice-toggle-button {
+  flex-shrink: 0; /* 左右图标固定宽度 */
+  width: auto; /* 自适应图标尺寸 */
+  height: auto; /* 自适应图标尺寸 */
+  padding: 0; /* 移除默认 padding */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 发送图标图片 */
-.send-icon-img {
-  width: 24px;
-  height: 24px;
+/* 语音图标图片 - 图标更新：保持图标尺寸精致，建议 width: 24px; height: 24px; */
+.voice-icon-img {
+  width: 24px; /* 图标更新：保持图标尺寸精致，建议 width: 24px; height: 24px; */
+  height: 24px; /* 图标更新：保持图标尺寸精致，建议 width: 24px; height: 24px; */
   object-fit: contain;
 }
 
-/* 发送按钮容器 */
+/* 输入框 textarea - flex: 1 自动拉长，像素级还原：48px 高度 */
+.input-textarea {
+  flex: 1; /* 中间 textarea 设为 flex: 1 自动拉长 */
+  background: transparent; /* 确保 textarea 背景透明 */
+  border: none; /* 无边框 */
+  outline: none; /* 无轮廓 */
+  min-width: 0; /* 防止 flex 子元素溢出 */
+  /* 内容布局与文字：输入占位符文字 placeholder 颜色锁定为 #999999（在下方单独定义） */
+  /* 文字对齐：检查 textarea 的行高 line-height，确保文字在 48px 高度下完美居中 */
+  line-height: 48px; /* 文字对齐：行高与容器高度一致，确保文字在 48px 高度下完美居中 */
+  height: 48px; /* 容器尺寸与颜色：同步 textarea 高度为 48px */
+  min-height: 48px; /* 最小高度锁定 */
+  padding: 0; /* 移除垂直 padding，确保文字完美居中 */
+  font-size: 14px; /* 字号调整为 14px，适应 48px 高度 */
+}
+
+/* 输入框占位符颜色 - 内容布局与文字：输入占位符文字 placeholder 颜色锁定为 #999999 */
+.input-wrapper .input-textarea::placeholder {
+  color: #999999; /* 内容布局与文字：输入占位符文字 placeholder 颜色锁定为 #999999 */
+  line-height: 48px; /* 文字对齐：确保 placeholder 在 48px 高度下也能正常显示 */
+}
+
+/* 发送图标图片 - 发送图标：确保右侧发送图标在粉色容器内部，且保持 assets/v2/ 体系下的精致感 */
+.send-icon-img {
+  width: 24px; /* 发送图标：确保右侧发送图标在粉色容器内部，且保持 assets/v2/ 体系下的精致感 */
+  height: 24px; /* 发送图标：确保右侧发送图标在粉色容器内部，且保持 assets/v2/ 体系下的精致感 */
+  object-fit: contain;
+  /* 为 .send-icon-img 注入"肉感"内阴影 */
+  /* 外阴影：drop-shadow(0 2px 4px rgba(255, 84, 167, 0.3)) */
+  filter: drop-shadow(0 2px 4px rgba(255, 84, 167, 0.3));
+  position: relative;
+  z-index: 2; /* 确保图标在伪元素之上 */
+}
+
+/* 发送按钮容器 - 移除默认背景，添加内高光效果，精致化尺寸 */
 .send-button {
-  /* 移除默认颜色，保持高亮状态 */
+  position: relative;
+  background: transparent; /* 移除发送按钮的默认背景，直接使用 send-icon-img */
+  border: none; /* 移除边框 */
   transition: all 0.2s ease;
+  flex-shrink: 0; /* 左右图标固定宽度 */
+  width: auto; /* 自适应图标尺寸 */
+  height: auto; /* 自适应图标尺寸 */
+  padding: 0; /* 移除默认 padding */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 发送按钮的内高光效果（通过伪元素模拟 inset drop-shadow），像素级还原：24px 尺寸 */
+.send-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px; /* 像素级还原：伪元素尺寸调整为 24px，与图标尺寸一致 */
+  height: 24px; /* 像素级还原：伪元素尺寸调整为 24px，与图标尺寸一致 */
+  /* 内高光：drop-shadow(inset 0 1px 2px rgba(255, 255, 255, 0.8)) */
+  /* 使用径向渐变模拟内高光效果 */
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  pointer-events: none;
+  border-radius: 50%;
+  mix-blend-mode: overlay;
+  opacity: 0.7;
+  z-index: 1; /* 在图标下方 */
+}
+
+
+/* 发送按钮交互效果：:active 状态时增加缩放反馈 */
+.send-button:active {
+  transform: scale(0.92); /* 交互效果：:active 状态时增加 transform: scale(0.92) 的缩放反馈 */
 }
 
 .send-button:disabled {
@@ -384,7 +472,7 @@
   pointer-events: none;
 }
 
-/* 发送按钮图标包装 - 实心小飞机终极版 */
+/* 发送按钮图标包装 - 实心小飞机终极版（保留兼容性） */
 .send-icon-wrapper {
   opacity: 1 !important; /* 常量显示：确保小飞机的 opacity 始终为 1 */
   filter: drop-shadow(0 2px 4px rgba(255, 84, 167, 0.3)); /* 内阴影注入：增强立体感 */
@@ -449,23 +537,20 @@
   background-color: #A45E71;
 }
 
-/* IntroCard 介绍模块样式 - 边距对齐，确保全页视觉统一 */
+/* IntroCard 介绍模块样式 - 强制重写：容器样式覆盖 */
 .intro-card-container {
-  /* 边距对齐：修改 .intro-card-container，将其宽度设为 width: calc(100% - 12px) !important; */
-  position: relative; /* 相对定位 */
-  width: calc(100% - 12px) !important; /* 边距对齐：修改 .intro-card-container，将其宽度设为 width: calc(100% - 12px) !important; */
-  min-height: 88px; /* 最小高度 */
-  height: auto; /* 高度逻辑：确保文字不被遮挡 */
-  margin: 36px auto 0 !important; /* 居中锁定：确保 margin: 0 auto;，让容器距离屏幕左右边缘严格保持 12px，与下方的消息流完美对齐 */
-  background: rgba(255, 255, 255, 0.9); /* 样式复核：维持微透明的背景，确保与 Rectangle 7 的气泡风格一致 */
-  box-shadow: 0px 4px 20px rgba(242, 26, 26, 0.05); /* 极淡的红色投影 */
-  border-radius: 15px; /* 样式复核：维持 border-radius: 15px，确保与 Rectangle 7 的气泡风格一致 */
-  border: 1px solid #FFE9E5; /* 样式复核：添加 1px 微细边框，与 Rectangle 7 的气泡风格一致 */
-  box-sizing: border-box; /* 确保边框计算正确 */
+  position: relative !important; 
+  width: calc(100% - 24px) !important; /* 核心：恢复左右 12px 边距 */
+  margin: 36px auto 0 !important; /* 核心：垂直间距及居中 */
+  background: rgba(255, 255, 255, 0.5) !important; /* 调整背景透明度：将背景色从 rgba(255, 255, 255, 0.7) 修改为 rgba(255, 255, 255, 0.5) */
+  border: 1px solid #FCD7D0 !important; /* Rectangle 6 的边框色 */
+  border-radius: 15px !important;
+  box-sizing: border-box !important;
+  padding: 12px 16px;
+  height: auto !important; /* 允许根据内容自适应，不要写死 88px */
   z-index: 5;
   display: flex;
   flex-direction: column;
-  padding: 12px 16px; /* 内部对齐保持：给文字留出内部呼吸感 */
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑展开动画 */
   overflow: hidden; /* 确保内容不会溢出 */
 }
@@ -483,7 +568,7 @@
 /* 标题：左侧保留"简介"二字 */
 .intro-card-title {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 500; /* 取消标题加粗：将 font-weight: bold; 修改为 font-weight: 500;，确保"简介"两个字不再加粗显示 */
   color: #333;
   margin: 0;
   flex-shrink: 0;
@@ -498,14 +583,14 @@
   flex-shrink: 0; /* 防止标签被压缩 */
 }
 
-/* 标签样式 */
+/* 标签样式 - 微调透明度：修改标签背景透明度 */
 .intro-card-tag {
-  background-color: #FEEFF2; /* 背景色：保持清透的粉色底色 */
-  color: #A45E71; /* 文字颜色：更新为 #A45E71 */
-  border-radius: 20px; /* 完全圆角 */
-  font-size: 11px; /* 字号：匹配深色文字的视觉重量 */
-  font-weight: 500; /* 字重：增强视觉重量 */
-  padding: 4px 10px;
+  color: rgba(164, 94, 113, 0.8) !important; /* 保持视觉一致性：保持标签文字颜色 rgba(164, 94, 113, 0.8) 不变 */
+  background-color: rgba(255, 209, 219, 0.6); /* 修改标签背景透明度：将 background-color 从实色 #FFD1DB 修改为 rgba(255, 209, 219, 0.6) */
+  border-radius: 20px; /* 细节检查：保持标签的圆角（20px）不变，确保其胶囊形状的精致度 */
+  font-size: 11px;
+  padding: 4px 10px; /* 细节检查：保持内边距不变，确保其胶囊形状的精致度 */
+  font-weight: 500;
   white-space: nowrap;
   line-height: 1.2;
 }
@@ -535,14 +620,14 @@
   display: block;
 }
 
-/* 处理展开状态的交互 */
+/* 处理展开状态的交互 - 回滚并优化 */
 .intro-card-container.expanded {
   height: auto !important; /* 允许根据内容自适应高度 */
   min-height: 88px; /* 展开时也保持最小高度 */
   padding: 12px 16px; /* 保持一致的 padding */
-  /* 展开时背景保持微透明，与 Rectangle 7 的气泡风格一致 */
-  background: rgba(255, 255, 255, 0.9) !important;
+  /* 透明度应用：展开时背景保持微透明，统一使用 rgba 控制 */
+  background: rgba(255, 255, 255, 0.5) !important; /* 调整背景透明度：展开状态也同步修改为 rgba(255, 255, 255, 0.5) */
   border-radius: 15px !important; /* 展开状态也保持 15px */
-  border: 1px solid #FFE9E5 !important; /* 展开状态也保持 1px 微细边框 */
+  border: 1px solid #FCD7D0 !important; /* 透明度应用：展开状态也使用 border: 1px solid #FCD7D0 */
   box-sizing: border-box !important; /* 确保边框计算正确 */
 }

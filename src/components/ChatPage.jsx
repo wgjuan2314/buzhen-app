@@ -16,6 +16,7 @@ import iconMedal from '../assets/v2/icon-medal.png'
 import avatarAISmall from '../assets/v2/avatar-ai-small.png'
 import avatarUserSmall from '../assets/v2/avatar-user-small.png'
 import iconSend from '../assets/v2/icon-send.png'
+import iconAudio from '../assets/v2/icon-audio.png'
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -1195,124 +1196,120 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         >
           {/* 內容容器 - 與主內容區域對齊 */}
           <div className="mx-auto w-full max-w-md">
-            <div className="flex items-center gap-3">
-              {/* 左側：切換圖標 */}
+            {/* 大胶囊收纳：将语音按钮、textarea 和发送按钮全部封装进 .input-wrapper */}
+            {isVoiceMode ? (
+              // 語音模式：按住說話按鈕（保持独立，因为需要特殊样式）
               <button
                 type="button"
-                onClick={() => setIsVoiceMode(!isVoiceMode)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#333] transition-all hover:opacity-70 active:scale-95"
-                aria-label={isVoiceMode ? '切換到文字輸入' : '切換到語音輸入'}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchCancel}
+                onMouseDown={handleTouchStart}
+                onMouseMove={handleTouchMove}
+                onMouseUp={handleTouchEnd}
+                onMouseLeave={handleTouchEnd}
+                className={`w-full h-10 rounded-full px-6 text-sm font-medium text-[#333] text-center transition-transform active:scale-95 border border-[#FF9EB5]/30 ${
+                  cancelRecording
+                    ? 'bg-red-500/80 text-white'
+                    : isRecording
+                    ? 'bg-[#FF9EB5]/20'
+                    : 'bg-[#FF9EB5]/10'
+                }`}
+                style={{
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  touchAction: 'none',
+                }}
+                disabled={!isSpeechSupported}
               >
-                {isVoiceMode ? (
-                  <Keyboard className="h-6 w-6" strokeWidth={1.5} />
+                {isRecording ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <motion.div
+                      className="flex items-center gap-1"
+                      initial="rest"
+                      animate="animate"
+                      variants={{
+                        rest: {},
+                        animate: {
+                          transition: {
+                            staggerChildren: 0.1,
+                            repeat: Infinity,
+                          },
+                        },
+                      }}
+                    >
+                      {[0, 1, 2, 3].map((i) => (
+                        <motion.div
+                          key={i}
+                          className={`h-4 w-1 rounded-full ${
+                            cancelRecording ? 'bg-white' : 'bg-[#FF9EB5]'
+                          }`}
+                          variants={{
+                            rest: { height: 8 },
+                            animate: {
+                              height: [8, 20, 8],
+                              transition: {
+                                duration: 0.5,
+                                repeat: Infinity,
+                              },
+                            },
+                          }}
+                        />
+                      ))}
+                    </motion.div>
+                    <span>{cancelRecording ? '鬆開手指，取消發送' : '手指上滑，取消發送'}</span>
+                  </div>
                 ) : (
-                  <Mic className="h-6 w-6" strokeWidth={1.5} />
+                  <span className="text-center">
+                    {!isSpeechSupported 
+                      ? '當前瀏覽器不支持錄音，請使用 Chrome 或 Safari' 
+                      : '按住 說話'}
+                  </span>
                 )}
               </button>
-
-              {/* 中間：輸入組件 */}
-              {isVoiceMode ? (
-                // 語音模式：按住說話按鈕
+            ) : (
+              // 文字模式：大胶囊收纳 - 将语音按钮、textarea 和发送按钮全部封装进 .input-wrapper
+              <div className="input-wrapper">
+                {/* 左側：切換圖標 - 使用 icon-audio.png */}
                 <button
                   type="button"
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchCancel={handleTouchCancel}
-                  onMouseDown={handleTouchStart}
-                  onMouseMove={handleTouchMove}
-                  onMouseUp={handleTouchEnd}
-                  onMouseLeave={handleTouchEnd}
-                  className={`flex-1 h-10 rounded-full px-6 text-sm font-medium text-[#333] text-center transition-transform active:scale-95 border border-[#FF9EB5]/30 ${
-                    cancelRecording
-                      ? 'bg-red-500/80 text-white'
-                      : isRecording
-                      ? 'bg-[#FF9EB5]/20'
-                      : 'bg-[#FF9EB5]/10'
-                  }`}
-                  style={{
-                    WebkitTouchCallout: 'none',
-                    WebkitUserSelect: 'none',
-                    userSelect: 'none',
-                    touchAction: 'none',
-                  }}
-                  disabled={!isSpeechSupported}
+                  onClick={() => setIsVoiceMode(!isVoiceMode)}
+                  className="voice-toggle-button flex shrink-0 items-center justify-center transition-all hover:opacity-70 active:scale-95"
+                  aria-label="切換到語音輸入"
                 >
-                  {isRecording ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <motion.div
-                        className="flex items-center gap-1"
-                        initial="rest"
-                        animate="animate"
-                        variants={{
-                          rest: {},
-                          animate: {
-                            transition: {
-                              staggerChildren: 0.1,
-                              repeat: Infinity,
-                            },
-                          },
-                        }}
-                      >
-                        {[0, 1, 2, 3].map((i) => (
-                          <motion.div
-                            key={i}
-                            className={`h-4 w-1 rounded-full ${
-                              cancelRecording ? 'bg-white' : 'bg-[#FF9EB5]'
-                            }`}
-                            variants={{
-                              rest: { height: 8 },
-                              animate: {
-                                height: [8, 20, 8],
-                                transition: {
-                                  duration: 0.5,
-                                  repeat: Infinity,
-                                },
-                              },
-                            }}
-                          />
-                        ))}
-                      </motion.div>
-                      <span>{cancelRecording ? '鬆開手指，取消發送' : '手指上滑，取消發送'}</span>
-                    </div>
-                  ) : (
-                    <span className="text-center">
-                      {!isSpeechSupported 
-                        ? '當前瀏覽器不支持錄音，請使用 Chrome 或 Safari' 
-                        : '按住 說話'}
-                    </span>
-                  )}
+                  <img src={iconAudio} alt="语音输入" className="voice-icon-img" />
                 </button>
-              ) : (
-                // 文字模式：輸入框 - Rectangle 10 还原
-                <div className="input-wrapper flex-1 flex items-center">
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="发消息给江予白..."
-                    rows={1}
-                    className="w-full h-10 max-h-32 resize-none rounded-[25px] px-4 py-0 text-sm leading-[40px] text-[#333] placeholder:leading-[40px] outline-none border-none transition-all"
-                    style={{
-                      lineHeight: '40px', // 嚴格垂直居中：高度 40px，行高 40px
-                    }}
-                  />
-                </div>
-              )}
 
-              {/* 右側：發送圖標 - 使用 icon-send.png */}
-              {!isVoiceMode && (
+                {/* 中間：輸入框 - flex: 1 自動拉長 */}
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="发消息给江予白..."
+                  rows={1}
+                  className="input-textarea flex-1 resize-none px-0 py-0 text-sm text-[#333] outline-none border-none bg-transparent transition-all"
+                  style={{
+                    lineHeight: '48px', // 文字对齐：确保文字在 48px 高度下完美居中
+                    height: '48px', // 容器尺寸与颜色：同步 textarea 高度为 48px
+                    minHeight: '48px', // 最小高度锁定
+                    maxHeight: '192px', // 最大高度（4倍，保持多行输入能力）
+                  }}
+                />
+
+                {/* 右側：發送圖標 - 使用 icon-send.png */}
                 <button
                   type="button"
                   disabled={!canSend}
                   onClick={onSend}
-                  className="send-button flex h-10 w-10 shrink-0 items-center justify-center transition-all hover:opacity-80 active:scale-95"
+                  className="send-button flex shrink-0 items-center justify-center transition-all hover:opacity-80 active:scale-95"
                   aria-label="發送"
                 >
                   <img src={iconSend} alt="发送" className="send-icon-img" />
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* 瀏覽器不支持提示 */}
             {isVoiceMode && !isSpeechSupported && (
