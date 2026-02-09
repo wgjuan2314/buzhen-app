@@ -7,6 +7,15 @@ import { generateSpeech, setBgmState } from '../services/VoiceService'
 import IntroCard from './IntroCard'
 import avatarImg from '../assets/avatar.jpg'
 import { useChatStore } from '../store/chatStore'
+import './ChatPage.css'
+// V2 切图资源
+import iconPhone from '../assets/v2/icon-phone.png'
+import iconSet from '../assets/v2/icon-set.png'
+import avatarBig from '../assets/v2/avatar-main-big.png'
+import iconMedal from '../assets/v2/icon-medal.png'
+import avatarAISmall from '../assets/v2/avatar-ai-small.png'
+import avatarUserSmall from '../assets/v2/avatar-user-small.png'
+import iconSend from '../assets/v2/icon-send.png'
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -94,7 +103,7 @@ function estimateVoiceDuration(text) {
   return Math.max(2, Math.ceil(cleanedText.length / 4))
 }
 
-// 處理括號內容顏色（將括號內容渲染為更淡的顏色）
+  // 處理括號內容顏色（將括號內容渲染為更淡的顏色）
 function renderTextWithBrackets(text, isUser = false) {
   if (!text) return text
   
@@ -121,20 +130,28 @@ function renderTextWithBrackets(text, isUser = false) {
   
   // 如果沒有匹配到括號，返回原文本
   if (parts.length === 0) {
-    return <span>{text}</span>
+    return <span className="message-content">{text}</span>
   }
   
-  // 根據消息類型選擇顏色
-  const bracketColor = isUser ? 'text-[#1A1A1A]/60' : 'text-white/60'
+  // 根據消息類型選擇顏色：括号内统一为 #999999，正文根据角色不同
+  // 男主（AI）：括号内 #999999，正文 #333333
+  // 女主（User）：括号内 #999999，正文 #191919
+  const bracketColor = '#999999' // 括号内颜色统一
+  const textColor = isUser ? '#191919' : '#333333' // 正文颜色根据角色
   
   return (
-    <>
+    <span className="message-content">
       {parts.map((part, index) => (
-        <span key={index} className={part.isBracket ? bracketColor : ''}>
+        <span 
+          key={index} 
+          style={{ 
+            color: part.isBracket ? bracketColor : textColor 
+          }}
+        >
           {part.text}
         </span>
       ))}
-    </>
+    </span>
   )
 }
 
@@ -208,7 +225,7 @@ function Typewriter({ text, onComplete, onProgress, isUser = false }) {
     }
   }, [text])
 
-  // 渲染文字（帶括號顏色處理）
+  // 渲染文字：使用 renderTextWithBrackets 处理括号颜色，但保持整段文字自然流淌
   return (
     <motion.span
       initial={{ opacity: 0 }}
@@ -761,138 +778,62 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
 
   return (
     <>
-      {/* 層級一：頂部導航欄 (Navbar) */}
-      <div className="fixed left-0 top-0 z-50 w-full pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex max-w-md items-center justify-end px-4 py-3">
-          {/* 右側：設置圖標 */}
-          <button
-            className="flex h-8 w-8 items-center justify-center text-white transition-all hover:opacity-80 active:scale-95"
-            onClick={() => setIsSettingsOpen(true)}
-            type="button"
-            aria-label="设置"
-          >
-            <Settings className="h-5 w-5" strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
-
-      {/* 層級二：頂部懸浮內容區 (Top Floating Content) - z-index: 50 確保在遮罩層之上 */}
-      <div className="fixed left-0 top-0 z-50 w-full pt-[env(safe-area-inset-top)] mt-[36px]">
-        <div className="mx-auto flex max-w-md items-center gap-3 px-4">
-          {/* 左側膠囊：角色信息 */}
-          <div className="flex shrink-0 min-w-[140px] h-12 items-center gap-2 rounded-full bg-black/30 px-2 py-2 backdrop-blur-lg">
-            {/* 頭像容器 */}
-            <div className="relative shrink-0">
-              <img
-                src={avatarImg}
-                alt="江予白"
-                className="h-8 w-8 rounded-full object-cover"
-              />
-            </div>
-            {/* 名字和副標題 */}
-            <div className="flex flex-col">
-              <div className="text-[12px] font-medium text-white">江予白</div>
-              <div className="text-[9px] text-white/60">你的梦境守护者</div>
-            </div>
-            {/* 加號圖標（容器右端，垂直居中） */}
-            <div className="ml-auto flex h-4 w-4 items-center justify-center">
-              <CirclePlus className="h-4 w-4 text-white" strokeWidth={2} />
-            </div>
+      {/* V2 顶部 Header 区域 - 使用 Flex 布局，左右两端对齐 */}
+      <div className="chat-header-v2 fixed left-0 top-0 w-full pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
+          {/* 左侧区域：iconSet 和 iconPhone */}
+          <div className="flex items-center gap-3">
+            <button
+              className="header-icon-button"
+              onClick={() => setIsSettingsOpen(true)}
+              type="button"
+              aria-label="设置"
+            >
+              <img src={iconSet} alt="设置" className="header-icon-img" />
+            </button>
+            <button
+              className="header-icon-button"
+              type="button"
+              aria-label="电话"
+            >
+              <img src={iconPhone} alt="电话" className="header-icon-img" />
+            </button>
           </div>
 
-          {/* 右側膠囊：親密度 */}
-          <div className="flex shrink-0 min-w-[120px] h-12 items-center rounded-full bg-black/30 px-2 py-2 backdrop-blur-lg">
-            {/* 左側：愛心圖標（帶等級數字） */}
-            <div className="relative shrink-0">
-              <svg
-                className="h-6 w-6"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <defs>
-                  {/* 漸變定義 */}
-                  <linearGradient
-                    id="heart-fill-gradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="100%"
-                    gradientUnits="userSpaceOnUse"
-                    gradientTransform="rotate(220.73 12 12)"
-                  >
-                    <stop offset="13.67%" stopColor="#FF5456" />
-                    <stop offset="83.77%" stopColor="#FF54A7" />
-                  </linearGradient>
-                  {/* 內陰影濾鏡（高保真還原 inset -1px 3px 4px rgba(255, 255, 255, 0.5)） */}
-                  <filter id="heart-inner-shadow" x="-50%" y="-50%" width="200%" height="200%">
-                    {/* 步驟1: 創建偏移的陰影（dx=-1, dy=3） */}
-                    <feOffset dx="-1" dy="3" in="SourceAlpha" result="offset" />
-                    {/* 步驟2: 模糊陰影（stdDeviation=2 對應 4px blur） */}
-                    <feGaussianBlur stdDeviation="2" in="offset" result="blur" />
-                    {/* 步驟3: 使用 operator="out" 提取形狀外部區域（即內陰影區域） */}
-                    <feComposite in="SourceAlpha" in2="blur" operator="out" result="inner-shadow-mask" />
-                    {/* 步驟4: 創建白色半透明填充 */}
-                    <feFlood floodColor="#FFFFFF" floodOpacity="0.5" result="flood" />
-                    {/* 步驟5: 將填充與內陰影遮罩合成 */}
-                    <feComposite in="flood" in2="inner-shadow-mask" operator="in" result="inner-shadow" />
-                    {/* 步驟6: 將內陰影與原始圖形合成 */}
-                    <feComposite in="SourceGraphic" in2="inner-shadow" operator="over" />
-                  </filter>
-                </defs>
-                {/* 愛心路徑 */}
-                <path
-                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                  fill="url(#heart-fill-gradient)"
-                  filter="url(#heart-inner-shadow)"
-                />
-              </svg>
-              {/* 愛心內部的等級數字 */}
-              <div 
-                className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white"
-                style={{
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-                }}
-              >
+          {/* 中间区域：avatarBig - 完全居中 */}
+          <div className="flex items-center justify-center">
+            <img
+              src={avatarBig}
+              alt="江予白"
+              className="h-14 w-14 rounded-full object-cover"
+            />
+          </div>
+
+          {/* 右侧区域：亲密度勋章 - 带底框的复合视觉效果 */}
+          <div className="intimacy-card">
+            {/* 爱心翅膀图标 (iconMedal) - 半悬浮在底框上方 */}
+            <div className="medal-icon-wrapper">
+              <img src={iconMedal} alt="亲密度勋章" className="medal-icon-large" />
+              {/* 等级数字：在爱心中心显示 */}
+              <div className="medal-level-number">
                 {getIntimacyLevel(chatTurns)}
               </div>
             </div>
-            
-            {/* 右側：雙行內容區 */}
-            <div className="ml-2 flex flex-1 flex-col justify-center">
-              {/* 第一行：Lv.X 和 (當前/目標) */}
-              {(() => {
-                const levelInfo = getIntimacyLevelInfo(chatTurns)
-                const currentLevel = levelInfo.level
-                const currentProgressText = `(${chatTurns}/${levelInfo.target})`
-                return (
-                  <>
-                    <div className="flex items-baseline gap-1">
-                      <div className="text-[12px] text-white">
-                        Lv.{currentLevel}
-                      </div>
-                      <div className="text-[10px] text-white/60">
-                        {currentProgressText}
-                      </div>
-                    </div>
-                    {/* 第二行：進度條（高保真還原） */}
-                    <div className="mt-0.5 h-[4px] w-[80%] overflow-hidden rounded-full bg-white/20">
-                      <motion.div
-                        className="h-full rounded-full"
-                        style={{
-                          background: 'linear-gradient(247.41deg, #D969F8 14.69%, #FF8DC4 82.67%)',
-                        }}
-                        initial={{ width: '0%' }}
-                        animate={{ width: `${getIntimacyProgressPercent(chatTurns)}%` }}
-                        transition={{
-                          duration: 0.8,
-                          ease: 'easeOut',
-                        }}
-                      />
-                    </div>
-                  </>
-                )
-              })()}
+            {/* 等级文本：在底框内显示 */}
+            <div className="medal-level-text">
+              亲密度LV{getIntimacyLevel(chatTurns)}
+            </div>
+            {/* 进度条：放置在底框最下方 */}
+            <div className="medal-progress-bar">
+              <motion.div
+                className="medal-progress-fill"
+                initial={{ width: '0%' }}
+                animate={{ width: `${getIntimacyProgressPercent(chatTurns)}%` }}
+                transition={{
+                  duration: 0.8,
+                  ease: 'easeOut',
+                }}
+              />
             </div>
           </div>
         </div>
@@ -954,7 +895,12 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+              className="settings-modal-overlay fixed inset-0 flex items-center justify-center"
+              style={{
+                zIndex: 200,
+                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                backdropFilter: 'blur(10px)',
+              }}
               onClick={() => setIsSettingsOpen(false)}
             >
               {/* 设置弹窗 */}
@@ -962,9 +908,10 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative z-[71] w-full max-w-sm rounded-2xl px-6 py-5 shadow-xl"
+                className="settings-modal-content relative w-full max-w-[320px] rounded-[24px] px-6 py-5 shadow-xl"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
+                  zIndex: 210,
+                  background: 'rgba(255, 255, 255, 0.85)',
                   backdropFilter: 'blur(12px)',
                 }}
                 onClick={(e) => e.stopPropagation()} // 阻止点击弹窗内部时关闭
@@ -1010,8 +957,8 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                     </div>
                     <button
                       onClick={handleBGMToggle}
-                      className={`relative h-7 w-12 rounded-full transition-colors ${
-                        !isMuted ? 'bg-slate-900' : 'bg-slate-300'
+                      className={`settings-toggle relative h-7 w-12 rounded-full transition-colors ${
+                        !isMuted ? 'settings-toggle-on' : 'bg-slate-300'
                       }`}
                       type="button"
                       role="switch"
@@ -1037,8 +984,8 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                     </div>
                     <button
                       onClick={() => handleAutoPlayToggle(!isAutoPlayEnabled)}
-                      className={`relative h-7 w-12 rounded-full transition-colors ${
-                        isAutoPlayEnabled ? 'bg-slate-900' : 'bg-slate-300'
+                      className={`settings-toggle relative h-7 w-12 rounded-full transition-colors ${
+                        isAutoPlayEnabled ? 'settings-toggle-on' : 'bg-slate-300'
                       }`}
                       type="button"
                       role="switch"
@@ -1063,33 +1010,24 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex flex-col h-dvh overflow-hidden"
-        style={{
-          backdropFilter: 'blur(3px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.1)', // 輕薄玻璃質感，讓視頻背景更透亮
-        }}
+        className="chat-container flex flex-col h-dvh overflow-hidden"
       >
+        {/* 顶部氛围渐变层 */}
+        <div className="top-atmosphere-gradient"></div>
         <div className="mx-auto flex h-full w-full max-w-md flex-col relative">
-          {/* 頂部漸變遮罩層 - 極致清爽 UI：從純黑色開始，在 20px 處迅速過渡到透明，確保文字像消失在深淵中一樣自然沒入 */}
-          <div
-            className="absolute top-0 left-0 right-0 z-40 pointer-events-none"
-            style={{
-              height: '160px',
-              background: 'linear-gradient(to bottom, #0A0A0B 0%, #0A0A0B 12.5%, rgba(10, 10, 11, 0.8) 20%, rgba(10, 10, 11, 0.4) 40%, rgba(10, 10, 11, 0.1) 60%, transparent 100%)',
-            }}
-          />
-          
-          {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動，z-index: 10 確保在遮罩層之下 */}
+          {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動 */}
           <div
             ref={listRef}
-            className="flex-1 overflow-y-auto px-4 pt-32 py-4 relative z-10"
+            className="message-list flex-1 overflow-y-auto py-4 relative"
             style={{
               backgroundColor: 'transparent',
+              paddingLeft: '12px',
+              paddingRight: '12px',
             }}
           >
             <div className="flex flex-col space-y-6">
               {/* 角色介紹容器 - 作為消息列表的第一個元素，始終顯示在頂部 */}
-              <div className="mt-[70px]">
+              <div>
                 <IntroCard />
               </div>
 
@@ -1102,104 +1040,85 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                   return (
                     <motion.div
                       key={m.id}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                      className={`${m.role === 'user' ? 'mb-8 flex items-end gap-2' : 'mb-8 flex flex-col items-start'} ${isFirstAssistantMessage ? 'mt-[20px]' : ''}`}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                      className={`message-slide-in message-item ${m.role === 'user' ? 'user-message-container' : 'ai-message-container'} ${isFirstAssistantMessage ? 'mt-[20px]' : ''}`}
+                      style={{ marginBottom: '-3px' }}
                     >
-                    {/* 消息氣泡容器（AI 需要 relative 定位以放置语音 Pill） */}
-                    <div className={m.role === 'assistant' ? 'relative' : 'ml-auto'}>
-                      {/* AI 消息：語音標識 pill 容器（極簡圓角樣式） */}
-                      {m.role === 'assistant' && m.content && m.content.trim() && (() => {
-                        const duration = voiceDurations[m.id] || estimateVoiceDuration(m.content)
-                        const durationText = `${duration}''`
-                        
-                        return (
-                          <button
-                            onClick={() => playVoice(m.id, m.content)}
-                            className="absolute left-0 -top-[12px] z-10 flex items-center gap-1.5 rounded-full bg-[#211E2C]/90 backdrop-blur-md px-2 py-1 transition-all hover:opacity-80 active:scale-95"
-                            style={{
-                              boxShadow: 'inset 0px -8px 10px rgba(140, 72, 135, 0.25)',
-                            }}
-                            type="button"
-                            aria-label="播放語音"
-                          >
-                            {playingAudioId === m.id ? (
-                              <motion.div
-                                className="flex items-center gap-0.5"
-                                initial="rest"
-                                animate="animate"
-                                variants={{
-                                  rest: {},
-                                  animate: {
-                                    transition: {
-                                      staggerChildren: 0.1,
-                                      repeat: Infinity,
-                                    },
-                                  },
-                                }}
+                      {/* 头像 */}
+                      <img
+                        src={m.role === 'assistant' ? avatarAISmall : avatarUserSmall}
+                        alt={m.role === 'assistant' ? 'AI头像' : '用户头像'}
+                        className="message-avatar"
+                      />
+                      
+                      {/* 消息气泡容器 */}
+                      <div className={`message-bubble-wrapper ${m.role === 'assistant' ? 'relative' : ''}`}>
+                        {/* 消息氣泡 */}
+                        <div
+                          className={`message-bubble ${m.role === 'user' ? 'message-user' : 'message-ai'}`}
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                          }}
+                        >
+                          {/* AI 消息：语音胶囊 - 在气泡内部最顶端 */}
+                          {m.role === 'assistant' && m.content && m.content.trim() && (() => {
+                            const duration = voiceDurations[m.id] || estimateVoiceDuration(m.content)
+                            const durationText = `${duration}''`
+                            
+                            return (
+                              <button
+                                onClick={() => playVoice(m.id, m.content)}
+                                className="audio-capsule"
+                                type="button"
+                                aria-label="播放語音"
                               >
-                                {[0, 1, 2].map((i) => (
+                                {playingAudioId === m.id ? (
                                   <motion.div
-                                    key={i}
-                                    className="h-2 w-0.5 bg-white rounded-full"
+                                    className="flex items-center gap-0.5"
+                                    initial="rest"
+                                    animate="animate"
                                     variants={{
-                                      rest: { height: 4 },
+                                      rest: {},
                                       animate: {
-                                        height: [4, 10, 4],
                                         transition: {
-                                          duration: 0.4,
+                                          staggerChildren: 0.1,
                                           repeat: Infinity,
                                         },
                                       },
                                     }}
-                                  />
-                                ))}
-                              </motion.div>
-                            ) : errorMessageIds.has(m.id) ? (
-                              <>
-                                <Play className="h-3 w-3 text-white/60 shrink-0" strokeWidth={2} fill="white/60" />
-                                <span className="text-[10px] text-white/60 whitespace-nowrap">{durationText}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-3 w-3 text-white shrink-0" strokeWidth={2} fill="white" />
-                                <span className="text-[10px] text-white whitespace-nowrap">{durationText}</span>
-                              </>
-                            )}
-                          </button>
-                        )
-                      })()}
-
-                      {/* 消息氣泡 */}
-                      <div
-                        className={
-                          m.role === 'user'
-                            ? `max-w-[318px] p-4 text-left text-sm ${
-                                isSingleLine(m.content) ? 'rounded-full' : 'rounded-[16px]'
-                              }`
-                            : `relative max-w-[318px] p-4 text-left text-sm text-white ${
-                                isSingleLine(m.content) ? 'rounded-full' : 'rounded-[16px]'
-                              }`
-                        }
-                        style={{
-                          whiteSpace: 'pre-wrap',
-                          ...(m.role === 'user'
-                            ? {
-                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                color: '#1A1A1A',
-                              }
-                            : {
-                                backgroundColor: '#211E2C',
-                                opacity: 0.9,
-                                backdropFilter: 'blur(12px)',
-                                boxShadow: 'inset 0px -8px 10px rgba(140, 72, 135, 0.25)',
-                              }),
-                        }}
-                      >
-                        {m.role === 'user' ? (
-                          // 用戶消息：直接顯示
+                                  >
+                                    {[0, 1, 2].map((i) => (
+                                      <motion.div
+                                        key={i}
+                                        className="playing-bar h-2 w-0.5 rounded-full"
+                                        variants={{
+                                          rest: { height: 4 },
+                                          animate: {
+                                            height: [4, 10, 4],
+                                            transition: {
+                                              duration: 0.4,
+                                              repeat: Infinity,
+                                            },
+                                          },
+                                        }}
+                                      />
+                                    ))}
+                                  </motion.div>
+                                ) : (
+                                  <>
+                                    <Play className="audio-capsule-icon" strokeWidth={2} stroke="#A45E71" fill="#A45E71" />
+                                    <span className="audio-capsule-duration">{durationText}</span>
+                                  </>
+                                )}
+                              </button>
+                            )
+                          })()}
+                          
+                          {m.role === 'user' ? (
+                          // 用戶消息：使用 renderTextWithBrackets 处理括号颜色，但保持整段文字自然流淌
                           m.content ? renderTextWithBrackets(m.content, true) : ''
                         ) : m.role === 'assistant' && isStreaming && m.id === lastStreamingIdRef.current ? (
                           // AI 消息：正在流式輸出時顯示省略號
@@ -1249,15 +1168,15 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                             }}
                           />
                         ) : m.role === 'assistant' && m.content ? (
-                          // AI 消息：已完成打字機效果或歷史消息，直接顯示完整內容
+                          // AI 消息：已完成打字機效果或歷史消息，使用 renderTextWithBrackets 处理括号颜色
                           renderTextWithBrackets(m.content, false)
                         ) : (
                           // 空內容
                           ''
                         )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
                   )
                 })}
               </AnimatePresence>
@@ -1266,7 +1185,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
 
         {/* Input - 底部輸入框容器，使用 shrink-0 防止被壓縮 */}
         <div
-          className="shrink-0 z-50 bg-gradient-to-t from-black/60 to-transparent backdrop-blur-xl"
+          className="input-area shrink-0 z-50"
           style={{
             paddingTop: '1rem',
             paddingBottom: `calc(1rem + env(safe-area-inset-bottom))`, // 適配手機安全區域
@@ -1281,7 +1200,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
               <button
                 type="button"
                 onClick={() => setIsVoiceMode(!isVoiceMode)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center text-white transition-all hover:opacity-70 active:scale-95"
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#333] transition-all hover:opacity-70 active:scale-95"
                 aria-label={isVoiceMode ? '切換到文字輸入' : '切換到語音輸入'}
               >
                 {isVoiceMode ? (
@@ -1304,12 +1223,12 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                   onMouseMove={handleTouchMove}
                   onMouseUp={handleTouchEnd}
                   onMouseLeave={handleTouchEnd}
-                  className={`flex-1 h-10 rounded-full px-6 text-sm font-medium text-white text-center transition-transform active:scale-95 border border-white/5 ${
+                  className={`flex-1 h-10 rounded-full px-6 text-sm font-medium text-[#333] text-center transition-transform active:scale-95 border border-[#FF9EB5]/30 ${
                     cancelRecording
-                      ? 'bg-red-500/80'
+                      ? 'bg-red-500/80 text-white'
                       : isRecording
-                      ? 'bg-white/20'
-                      : 'bg-white/20'
+                      ? 'bg-[#FF9EB5]/20'
+                      : 'bg-[#FF9EB5]/10'
                   }`}
                   style={{
                     WebkitTouchCallout: 'none',
@@ -1338,7 +1257,9 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                         {[0, 1, 2, 3].map((i) => (
                           <motion.div
                             key={i}
-                            className="h-4 w-1 bg-white rounded-full"
+                            className={`h-4 w-1 rounded-full ${
+                              cancelRecording ? 'bg-white' : 'bg-[#FF9EB5]'
+                            }`}
                             variants={{
                               rest: { height: 8 },
                               animate: {
@@ -1363,15 +1284,15 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                   )}
                 </button>
               ) : (
-                // 文字模式：輸入框 - 使用 flex items-center 包裝確保文字垂直居中
-                <div className="flex-1 flex items-center">
+                // 文字模式：輸入框 - Rectangle 10 还原
+                <div className="input-wrapper flex-1 flex items-center">
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="发消息给江予白..."
                     rows={1}
-                    className="w-full h-10 max-h-32 resize-none rounded-full bg-white/10 border border-white/5 px-4 py-0 text-sm leading-[40px] text-white placeholder:text-white/30 placeholder:leading-[40px] outline-none focus:border-white/10 transition-all"
+                    className="w-full h-10 max-h-32 resize-none rounded-[25px] px-4 py-0 text-sm leading-[40px] text-[#333] placeholder:leading-[40px] outline-none border-none transition-all"
                     style={{
                       lineHeight: '40px', // 嚴格垂直居中：高度 40px，行高 40px
                     }}
@@ -1379,26 +1300,23 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                 </div>
               )}
 
-              {/* 右側：發送圖標 */}
+              {/* 右側：發送圖標 - 使用 icon-send.png */}
               {!isVoiceMode && (
                 <button
                   type="button"
                   disabled={!canSend}
                   onClick={onSend}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center text-white transition-all hover:opacity-70 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="send-button flex h-10 w-10 shrink-0 items-center justify-center transition-all hover:opacity-80 active:scale-95"
                   aria-label="發送"
-                  style={{
-                    filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))',
-                  }}
                 >
-                  <Send className="h-6 w-6" strokeWidth={1.5} fill="currentColor" />
+                  <img src={iconSend} alt="发送" className="send-icon-img" />
                 </button>
               )}
             </div>
 
             {/* 瀏覽器不支持提示 */}
             {isVoiceMode && !isSpeechSupported && (
-              <p className="mt-2 text-center text-xs text-white/60">
+              <p className="mt-2 text-center text-xs text-[#666]">
                 請使用 Chrome 或 Safari 瀏覽器以使用語音輸入功能
               </p>
             )}

@@ -1,0 +1,548 @@
+/* ChatPage 样式 */
+
+/* 顶部设置图标边距调整 */
+.settings-nav-container {
+  padding-left: 16px; /* 保持左侧 padding 不变 */
+  padding-right: 10px !important; /* 结构微调：将父容器的 padding-right 修改为 10px，覆盖 px-4 的右侧 padding */
+}
+
+/* 外层容器 */
+.chat-container {
+  background: linear-gradient(180deg, #FDF0F3 0%, #FAF5F2 100%);
+  z-index: 100;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* 确保背景完全不透明，彻底隔绝底部视频 */
+  opacity: 1;
+}
+
+/* 顶部氛围渐变层 - Rectangle 21 */
+.top-atmosphere-gradient {
+  position: absolute;
+  width: 100%; /* 全屏显示，适配不同手机屏幕 */
+  height: 217px;
+  left: 0px;
+  top: 0px;
+  background: linear-gradient(180deg, #FCCAC9 0%, rgba(255, 204, 224, 0.686636) 31.34%, rgba(250, 245, 242, 0) 100%);
+  z-index: 2; /* 确保它处于背景层之上，但不会挡住最顶层的按钮 */
+  pointer-events: none;
+  /* 确保这个渐变层不会产生任何硬边缘，平滑地融入页面背景 */
+}
+
+/* 顶部 Header */
+.chat-header {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(20px);
+  z-index: 110;
+}
+
+/* V2 顶部 Header 区域 */
+.chat-header-v2 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding-top: env(safe-area-inset-top); /* 留出安全距离 */
+  z-index: 120; /* 层级提升：确保 Header 的 z-index 高于背景氛围层 */
+  background: transparent; /* 透明背景，让背景氛围层透出 */
+}
+
+/* Header 图标按钮 */
+.header-icon-button {
+  /* 图标尺寸：根据 2x 尺度缩小一半显示（例如原图 48px，代码里设为 24px） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.header-icon-button:active {
+  transform: scale(0.95); /* 点击缩放反馈 */
+}
+
+.header-icon-img {
+  width: 24px; /* 2x 图缩小一半，保持精致感 */
+  height: 24px; /* 2x 图缩小一半，保持精致感 */
+  object-fit: contain;
+  display: block;
+}
+
+/* 亲密度勋章容器 - Rectangle 26 */
+.intimacy-card {
+  position: relative; /* 改为相对定位，跟随 Flex 流动 */
+  margin-right: 4px; /* 缩减右边距：从 14px 修改为 4px，向右偏移 10px */
+  width: 74px;
+  height: 37px;
+  background: #FFBDCB; /* 维持 #FFBDCB 底色 */
+  border-radius: 8px; /* 维持 8px 圆角 */
+  /* 保持之前的内部对齐逻辑 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 4px;
+  overflow: visible;
+  z-index: 130; /* 确保整个 .intimacy-card 的 z-index 足够高，不被背景层遮挡 */
+}
+
+/* 爱心翅膀图标包装 - 半悬浮在底框上方 */
+.medal-icon-wrapper {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 勋章图标 - 必须放大 */
+.medal-icon-large {
+  width: 42px; /* 或更大，根据切图比例 */
+  height: auto;
+  display: block;
+  object-fit: contain; /* 确保放大后不会失真 */
+}
+
+/* 勋章等级数字 - 在爱心中心显示 */
+.medal-level-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 等级文本 - 在底框内显示 */
+.medal-level-text {
+  font-size: 9px;
+  color: #8B4A5C; /* 深粉色，如果不够清晰可改为白色 */
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* 勋章进度条 - 放置在底框最下方 */
+.medal-progress-bar {
+  width: 60px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* 进度条填充 - 根据现有轮数比例动态填充渐变色 */
+.medal-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #FF5456, #FF54A7);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* 消息列表容器 - 大幅缩小屏幕左右边距 */
+.message-list {
+  padding-top: 50px; /* 消除冗余间距：从 140px 减少 90px 到 50px，与简介容器上移保持一致 */
+  padding-left: 12px; /* 全局容器边距校准：确保所有头像和气泡的活动区域紧贴屏幕边缘 12px 处 */
+  padding-right: 12px; /* 全局容器边距校准：确保所有头像和气泡的活动区域紧贴屏幕边缘 12px 处 */
+}
+
+/* 消息项容器 - 带头像的布局，极限收缩对话框垂直间距 */
+.message-item {
+  margin-bottom: -3px !important; /* 垂直间距极限修正：在现有基础上再缩短 10px（从 7px 到 -3px），彻底消除气泡间的"空旷感"，让对话流呈现出连续、紧凑的块状美感，实现 100% 亲密对齐 */
+}
+
+/* 首尾优化：确保第一条消息顶部和最后一条消息底部没有多余的空隙 */
+.message-item:last-child {
+  margin-bottom: 0 !important; /* 最后一条消息底部没有多余空隙 */
+}
+
+/* 女主消息容器 (User Message) 强制靠右 - 修正侧边呼吸感 */
+.user-message-container {
+  display: flex;
+  flex-direction: row-reverse; /* 头像在右，气泡在左 */
+  justify-content: flex-start; /* 让气泡向右边头像靠拢，确保气泡紧贴右侧头像 */
+  align-items: flex-start;
+  gap: 8px; /* 间距：气泡与头像之间维持 8px 的紧凑间距 */
+  padding-left: 40px; /* 侧边留白：左侧必须留出至少 40px 的空白区域，决不能顶到左边缘 */
+}
+
+/* 男主消息容器 (AI Message) 强制靠左 - 修正侧边呼吸感 */
+.ai-message-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start; /* 容器靠左：气泡与左侧头像间距 8px */
+  align-items: flex-start;
+  gap: 8px; /* 间距：气泡与头像之间维持 8px 的紧凑间距 */
+  padding-right: 40px; /* 侧边留白：右侧必须留出至少 40px 的空白区域，决不能顶到右边缘 */
+}
+
+/* 消息头像 */
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%; /* 圆角 50% */
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* 消息气泡包装器 */
+.message-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* AI 消息气泡 - Rectangle 7 参数还原气泡样式 */
+.message-ai {
+  /* Rectangle 7 参数 */
+  width: fit-content;
+  max-width: 281px; /* Rectangle 7 参数：max-width: 281px */
+  background: rgba(255, 255, 255, 0.9); /* Rectangle 7 参数：background: rgba(255, 255, 255, 0.9) */
+  border: 1px solid #FFE9E5; /* Rectangle 7 参数：border: 1px solid #FFE9E5 */
+  border-radius: 15px; /* Rectangle 7 参数：border-radius: 15px */
+  box-sizing: border-box; /* Rectangle 7 参数：box-sizing: border-box */
+  padding: 18px 14px 10px 14px; /* 内边距微调：男主气泡顶部 padding-top: 18px 以避让语音胶囊，左右14px */
+  color: #333333; /* 男主台词正文颜色：#333333 (深灰)，括号内颜色通过 renderTextWithBrackets 设置为 #999999 */
+  font-size: 13px; /* 字体维持 13px */
+  line-height: 1.5; /* 行高 1.5 */
+  text-align: left;
+  /* 文字流动：继续维持 display: inline 排版，确保（）神态描写与台词正文不换行，仅在触及这 281px 边界时自然换行 */
+  word-break: break-word;
+  white-space: normal; /* 确保不强制换行 */
+  /* 相对定位：必须设置，因为要让语音胶囊"飞"出去 */
+  position: relative;
+  overflow: visible !important; /* 不能被气泡边缘切断 */
+  display: flex;
+  flex-direction: column;
+  /* 移除 box-shadow，因为 Rectangle 7 参数中没有 */
+}
+
+/* 用户消息气泡 - Rectangle 7 参数还原气泡样式 */
+.message-user {
+  /* Rectangle 7 参数：样式逻辑对齐 */
+  width: fit-content;
+  max-width: 281px; /* Rectangle 7 参数：max-width: 281px */
+  background: #FEEFF2; /* 背景色维持淡淡的粉色 */
+  border: 1px solid #FFE9E5; /* 1px 微细边框，与男主气泡保持一致 */
+  border-radius: 15px; /* Rectangle 7 参数：border-radius: 15px */
+  box-sizing: border-box; /* Rectangle 7 参数：box-sizing: border-box */
+  padding: 10px 14px; /* 内边距微调：为了配合整段文字，气泡内边距统一为 padding: 10px 14px */
+  color: #191919; /* 女主台词正文颜色：#191919，括号内颜色通过 renderTextWithBrackets 设置为 #999999 */
+  font-size: 13px; /* 字体维持 13px */
+  line-height: 1.5; /* 行高 1.5 */
+  text-align: left;
+  /* 文字流动：继续维持 display: inline 排版，确保（）神态描写与台词正文不换行，仅在触及这 281px 边界时自然换行 */
+  word-break: break-word;
+  white-space: normal; /* 确保不强制换行 */
+}
+
+/* 消息气泡通用样式 - 禁止手动换行，整段文字自然流淌 */
+.message-bubble {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  /* 确保文本内容在同一行内自然流淌，不允许插入 <br /> 或使用 display: block 将括号内容拆行 */
+  white-space: normal; /* 自然换行，不强制 */
+}
+
+/* 消息内容样式 - 单段文字自然流淌，禁止换行 */
+.message-content {
+  white-space: normal; /* 确保只在容器边缘换行 */
+  word-break: break-word;
+  display: inline; /* 强制行内显示，禁止内部块级换行 */
+}
+
+/* 确保 message-content 内的所有 span 都是 inline，不会引入换行 */
+.message-content span {
+  display: inline; /* 强制行内显示，禁止内部块级换行 */
+  white-space: normal; /* 自然换行，不强制 */
+}
+
+/* 语音胶囊 (Union) - 半叠加定位，飞在气泡外 */
+.audio-capsule {
+  /* 绝对定位：确保是相对于气泡进行绝对定位的 */
+  position: absolute;
+  top: -8px; /* 由于间距缩小到 14px，将胶囊的 top 微调至 -8px，避免戳到上一条消息的底部 */
+  left: -5px; /* 维持 position: absolute; top: -8px; left: -5px; 的半叠加效果 */
+  width: 40.6px;
+  height: 22px;
+  background: #F5D4D2;
+  border-radius: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px; /* 内边距 */
+  gap: 4px; /* 内部元素间距 */
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* 交互反馈：点击缩放反馈 */
+.audio-capsule:active {
+  transform: scale(0.95); /* active:scale-95，增强"可点击"的体感 */
+}
+
+/* 小三角图标 */
+.audio-capsule-icon {
+  width: 10px; /* 尺寸缩小至约 10px */
+  height: 10px;
+  flex-shrink: 0;
+}
+
+/* 时长文字 */
+.audio-capsule-duration {
+  color: #A45E71; /* 颜色建议使用 #A45E71 */
+  font-size: 10px; /* 字号 10px */
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* 播放状态动画条 */
+.playing-bar {
+  background-color: #A45E71;
+}
+
+/* 保留旧的 .audio-badge 样式以防兼容性问题 */
+.audio-badge {
+  background-color: #FEEFF2;
+  color: #A45E71;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border: none;
+  margin-bottom: 4px;
+}
+
+.audio-play-icon {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.audio-duration {
+  color: #A45E71;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* 输入区域底部背景 */
+.input-area {
+  background: #F9EDEB; /* 容器底座：奶酪色实色背景 */
+}
+
+/* 输入框容器 - Rectangle 10 还原 */
+.input-wrapper {
+  background: rgba(255, 255, 255, 0.8); /* 背景：rgba(255, 255, 255, 0.8) */
+  border-radius: 25px; /* 圆角 25px */
+  height: auto;
+  border: none;
+}
+
+/* 输入框占位符颜色 - #A45E71 的透明版 */
+.input-wrapper textarea::placeholder {
+  color: rgba(164, 94, 113, 0.5); /* #A45E71 的透明版 */
+}
+
+/* 发送图标图片 */
+.send-icon-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* 发送按钮容器 */
+.send-button {
+  /* 移除默认颜色，保持高亮状态 */
+  transition: all 0.2s ease;
+}
+
+.send-button:disabled {
+  /* 移除 opacity-30，但保留功能上的不可点击 */
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 发送按钮图标包装 - 实心小飞机终极版 */
+.send-icon-wrapper {
+  opacity: 1 !important; /* 常量显示：确保小飞机的 opacity 始终为 1 */
+  filter: drop-shadow(0 2px 4px rgba(255, 84, 167, 0.3)); /* 内阴影注入：增强立体感 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 发送按钮 SVG 图标样式 */
+.send-button-icon {
+  opacity: 1 !important; /* 常量显示：确保小飞机的 opacity 始终为 1 */
+}
+
+/* 设置弹窗样式 */
+.settings-modal-overlay {
+  z-index: 200 !important;
+}
+
+.settings-modal-content {
+  z-index: 210 !important;
+}
+
+/* Toggle 开关开启状态 - 使用小飞机同款渐变色 */
+.settings-toggle-on {
+  background: linear-gradient(220deg, #FF5456, #FF54A7) !important;
+}
+
+/* 消息滑入动画 */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-slide-in {
+  animation: messageSlideIn 0.4s ease-out forwards;
+}
+
+/* 语音播报按钮样式 - 已迁移到 .audio-badge，保留此样式以防兼容性问题 */
+.voice-pill {
+  background-color: #FEEFF2; /* 极其淡的粉色 */
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.voice-pill .play-icon {
+  color: #A45E71;
+  fill: #A45E71;
+}
+
+.voice-pill .duration-text {
+  color: #A45E71;
+}
+
+.voice-pill .playing-bar {
+  background-color: #A45E71;
+}
+
+/* IntroCard 介绍模块样式 - 边距对齐，确保全页视觉统一 */
+.intro-card-container {
+  /* 边距对齐：修改 .intro-card-container，将其宽度设为 width: calc(100% - 12px) !important; */
+  position: relative; /* 相对定位 */
+  width: calc(100% - 12px) !important; /* 边距对齐：修改 .intro-card-container，将其宽度设为 width: calc(100% - 12px) !important; */
+  min-height: 88px; /* 最小高度 */
+  height: auto; /* 高度逻辑：确保文字不被遮挡 */
+  margin: 36px auto 0 !important; /* 居中锁定：确保 margin: 0 auto;，让容器距离屏幕左右边缘严格保持 12px，与下方的消息流完美对齐 */
+  background: rgba(255, 255, 255, 0.9); /* 样式复核：维持微透明的背景，确保与 Rectangle 7 的气泡风格一致 */
+  box-shadow: 0px 4px 20px rgba(242, 26, 26, 0.05); /* 极淡的红色投影 */
+  border-radius: 15px; /* 样式复核：维持 border-radius: 15px，确保与 Rectangle 7 的气泡风格一致 */
+  border: 1px solid #FFE9E5; /* 样式复核：添加 1px 微细边框，与 Rectangle 7 的气泡风格一致 */
+  box-sizing: border-box; /* 确保边框计算正确 */
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px; /* 内部对齐保持：给文字留出内部呼吸感 */
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑展开动画 */
+  overflow: hidden; /* 确保内容不会溢出 */
+}
+
+/* 头部标签区 - 内部布局精准化，标签靠右 */
+.intro-card-header {
+  display: flex;
+  justify-content: space-between; /* 简介靠左，标签组靠右 */
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px; /* 精准化间距 */
+  flex-wrap: nowrap; /* 防止换行，保持一行布局 */
+}
+
+/* 标题：左侧保留"简介"二字 */
+.intro-card-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* 标签组：整体作为一组紧贴容器右侧 */
+.intro-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* 标签间距 6px */
+  flex-wrap: nowrap; /* 确保三个标签作为一组，不换行 */
+  flex-shrink: 0; /* 防止标签被压缩 */
+}
+
+/* 标签样式 */
+.intro-card-tag {
+  background-color: #FEEFF2; /* 背景色：保持清透的粉色底色 */
+  color: #A45E71; /* 文字颜色：更新为 #A45E71 */
+  border-radius: 20px; /* 完全圆角 */
+  font-size: 11px; /* 字号：匹配深色文字的视觉重量 */
+  font-weight: 500; /* 字重：增强视觉重量 */
+  padding: 4px 10px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* 内容文本区 - 简介文本配色方案 */
+.intro-card-collapsed-text,
+.intro-card-expanded-text {
+  font-size: 12px; /* 正文字号设定为 12px，保持精致感 */
+  line-height: 1.6; /* 行高设为 1.6，确保阅读时有呼吸感 */
+  color: #999999; /* 正文颜色：将简介下方的详细描述文字颜色统一修改为 #999999，通过弱化描述段落来提升界面的精致感 */
+  text-align: left;
+  margin: 0;
+  padding-top: 4px; /* 确保下方正文内容有足够的 padding-top，不与上方标签重叠 */
+}
+
+/* 折叠状态：显示前两行，结尾使用 ... 截断 */
+.intro-card-collapsed-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 展开状态：显示全部内容 */
+.intro-card-expanded-text {
+  display: block;
+}
+
+/* 处理展开状态的交互 */
+.intro-card-container.expanded {
+  height: auto !important; /* 允许根据内容自适应高度 */
+  min-height: 88px; /* 展开时也保持最小高度 */
+  padding: 12px 16px; /* 保持一致的 padding */
+  /* 展开时背景保持微透明，与 Rectangle 7 的气泡风格一致 */
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 15px !important; /* 展开状态也保持 15px */
+  border: 1px solid #FFE9E5 !important; /* 展开状态也保持 1px 微细边框 */
+  box-sizing: border-box !important; /* 确保边框计算正确 */
+}

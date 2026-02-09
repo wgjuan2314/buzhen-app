@@ -1,0 +1,119 @@
+/* 基础重置 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.landing-container {
+    position: fixed; inset: 0;
+    background-color: #ffd4e5; 
+    overflow: hidden; z-index: 1;
+}
+
+.background-video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; z-index: 1;
+}
+
+.pink-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, 
+        rgba(255, 212, 229, 0.95) 0%,   
+        rgba(255, 182, 193, 0.7) 35%,   
+        rgba(255, 158, 181, 0.2) 65%,  
+        transparent 100%               
+    );
+    z-index: 5; pointer-events: none;
+}
+
+.landing-page-content {
+    position: relative; width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between;
+    z-index: 10; padding: 80px 0;
+}
+
+/* 标题动效 [cite: 12-19] */
+.brand-header { margin-top: -20px; text-align: center; }
+.brand-name {
+    font-size: 52px; font-weight: 200; letter-spacing: 12px; 
+    color: rgba(255, 255, 255, 0.9);
+    background: linear-gradient(110deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 70%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: 0 0 40px rgba(255,182,193,0.8);
+    font-family: 'Times New Roman', serif;
+    animation: fadeInDown 1.2s ease forwards 0.3s, shimmer 6s infinite linear;
+}
+.brand-subtitle {
+    font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 12px;
+    letter-spacing: 6px; animation: fadeIn 1s ease forwards 0.8s;
+}
+
+/* --- 核心修改：按钮打包区域下移 100px --- */
+.dream-section { 
+    margin-bottom: -20px; /* 原为 80px，减少 100px 实现整体下移  */
+    position: relative; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dream-btn {
+    position: relative;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.3);
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    animation: btnFloat 4s ease-in-out infinite; /* [cite: 30, 36-38] */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dream-btn:active { transform: scale(0.95); }
+
+/* 文字排列 [cite: 44-47] */
+.dream-btn-inner {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+}
+.dream-text { font-size: 28px; color: white; letter-spacing: 8px; }
+.dream-sub { font-size: 11px; color: white; letter-spacing: 2px; margin-top: 4px; opacity: 0.8; }
+
+/* 增强波纹动效 [cite: 31-36, 39-42] */
+.dream-btn::before, .dream-btn::after, .ripple-ring-2 {
+    content: ''; position: absolute; border-radius: 50%;
+}
+.dream-btn::before {
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(255, 182, 193, 0.5) 0%, transparent 70%);
+    animation: glowPulse 3s ease-in-out infinite;
+    z-index: -1;
+}
+.dream-btn::after {
+    width: 220px; height: 220px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    animation: rippleRing 3s ease-out infinite;
+    z-index: -1;
+}
+.ripple-ring-2 {
+    width: 280px; height: 280px;
+    border: 1px solid rgba(255, 182, 193, 0.2);
+    animation: rippleRing 3s ease-out infinite 0.8s;
+    z-index: -1;
+}
+
+/* 动画帧 [cite: 16-19, 36-42] */
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes btnFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes glowPulse { 0%, 100% { opacity: 0.5; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes rippleRing { 0% { transform: scale(0.7); opacity: 1; } 100% { transform: scale(1.4); opacity: 0; } }
+
+.footer-note {
+    position: absolute; bottom: 20px; font-size: 11px;
+    color: rgba(255,255,255,0.4); text-align: center;
+}

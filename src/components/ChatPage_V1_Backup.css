@@ -1,0 +1,217 @@
+/* ChatPage 样式 */
+
+/* 顶部设置图标边距调整 */
+.settings-nav-container {
+    padding-left: 16px; /* 保持左侧 padding 不变 */
+    padding-right: 10px !important; /* 结构微调：将父容器的 padding-right 修改为 10px，覆盖 px-4 的右侧 padding */
+  }
+  
+  /* 外层容器 */
+  .chat-container {
+    background: linear-gradient(180deg, #FDF0F3 0%, #FAF5F2 100%);
+    z-index: 100;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    /* 确保背景完全不透明，彻底隔绝底部视频 */
+    opacity: 1;
+  }
+  
+  /* 顶部氛围渐变层 */
+  .top-atmosphere-gradient {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 217px;
+    background: linear-gradient(180deg, #FCCAC9 0%, rgba(250, 245, 242, 0) 100%);
+    z-index: 2;
+    pointer-events: none;
+  }
+  
+  /* 顶部 Header */
+  .chat-header {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(20px);
+    z-index: 110;
+  }
+  
+  /* 消息列表容器 */
+  .message-list {
+    padding-top: 140px;
+  }
+  
+  /* AI 消息气泡 */
+  .message-ai {
+    background: white;
+    color: #333;
+    box-shadow: 0 4px 15px rgba(255, 182, 193, 0.1);
+  }
+  
+  /* 用户消息气泡 */
+  .message-user {
+    background: #FFE4E1;
+    color: #333;
+  }
+  
+  /* 单行强制全圆角覆盖 */
+  .message-ai.rounded-full,
+  .message-user.rounded-full {
+    border-radius: 9999px !important;
+  }
+  
+  /* 输入区域底部背景 */
+  .input-area {
+    background: #F9EDEB; /* 容器底座：奶酪色实色背景 */
+  }
+  
+  /* 输入框容器 */
+  .input-wrapper {
+    background: white; /* 纯白背景 */
+    border-radius: 25px; /* 25px 大圆角 */
+    height: auto;
+    border: none; /* 彻底移除粉色边框，恢复为纯净的无边框状态 */
+  }
+  
+  /* 发送按钮容器 */
+  .send-button {
+    /* 移除默认颜色，保持高亮状态 */
+    transition: all 0.2s ease;
+  }
+  
+  .send-button:disabled {
+    /* 移除 opacity-30，但保留功能上的不可点击 */
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  
+  /* 发送按钮图标包装 - 实心小飞机终极版 */
+  .send-icon-wrapper {
+    opacity: 1 !important; /* 常量显示：确保小飞机的 opacity 始终为 1 */
+    filter: drop-shadow(0 2px 4px rgba(255, 84, 167, 0.3)); /* 内阴影注入：增强立体感 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* 发送按钮 SVG 图标样式 */
+  .send-button-icon {
+    opacity: 1 !important; /* 常量显示：确保小飞机的 opacity 始终为 1 */
+  }
+  
+  /* 设置弹窗样式 */
+  .settings-modal-overlay {
+    z-index: 200 !important;
+  }
+  
+  .settings-modal-content {
+    z-index: 210 !important;
+  }
+  
+  /* Toggle 开关开启状态 - 使用小飞机同款渐变色 */
+  .settings-toggle-on {
+    background: linear-gradient(220deg, #FF5456, #FF54A7) !important;
+  }
+  
+  /* 消息滑入动画 */
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .message-slide-in {
+    animation: messageSlideIn 0.4s ease-out forwards;
+  }
+  
+  /* 语音播报按钮样式 */
+  .voice-pill {
+    background-color: #F5D4D2;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  
+  .voice-pill .play-icon {
+    color: #7B4744;
+    fill: #7B4744;
+  }
+  
+  .voice-pill .duration-text {
+    color: #7B4744;
+  }
+  
+  .voice-pill .playing-bar {
+    background-color: #7B4744;
+  }
+  
+  /* IntroCard 介绍模块样式 */
+  .intro-card-container {
+    /* 背景重塑：白色半透明（使用 rgba 确保文字不透明） */
+    background: rgba(255, 255, 255, 0.6);
+    opacity: 1; /* 透明度校准：确保容器本身不透明，只有背景色半透明，不影响文字清晰度 */
+    backdrop-filter: blur(10px); /* 磨砂感优化，确保文字下方的磨砂感能隔离开背景颜色 */
+    border-radius: 16px;
+    width: auto; /* 自动宽度，维持自适应宽度逻辑 */
+    height: auto; /* 自适应高度，随内容自适应 */
+    margin: 0; /* 移除居中对齐 */
+    margin-top: 20px; /* 极致压缩间距：从 40px 进一步下调至 20px */
+    margin-left: -2px; /* 维持 left: 14px 边距逻辑，抵消父容器 px-4 (16px) 的部分 padding */
+    margin-right: -2px; /* 维持 right: 14px 边距逻辑，抵消父容器 px-4 (16px) 的部分 padding */
+    padding: 14px 18px; /* 维持 padding: 14px 18px，确保文字在容器内上下居中对称 */
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑展开动画 */
+    border: none;
+    box-shadow: 0 4px 12px rgba(86, 55, 55, 0.05);
+    z-index: 10; /* 确保在顶部粉色渐变层之上 */
+    overflow: hidden; /* 确保内容不会溢出 */
+  }
+  
+  .intro-card-text {
+    /* 文字样式还原 */
+    font-family: 'PingFang SC', sans-serif;
+    font-weight: normal; /* 排版保持：维持 font-weight: normal */
+    font-size: 12px; /* 字号提小：从 13px 调小为 12px */
+    line-height: 1.4; /* 排版保持：维持 line-height: 1.4 */
+    color: #563737; /* 排版保持：文字颜色为 #563737 */
+    text-align: left;
+  }
+  
+  .intro-card-text p {
+    margin: 0;
+    color: #563737;
+  }
+  
+  /* 折叠状态：显示前两行 */
+  .intro-card-collapsed-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: #563737;
+    font-size: 12px; /* 字号提小：从 13px 调小为 12px */
+    line-height: 1.4; /* 排版保持：维持 line-height: 1.4 */
+  }
+  
+  /* 展开状态：显示全部内容 */
+  .intro-card-expanded-text {
+    display: block;
+    color: #563737;
+    font-size: 12px; /* 字号提小：从 13px 调小为 12px */
+    line-height: 1.4; /* 排版保持：维持 line-height: 1.4 */
+  }
+  
+  /* 处理展开状态的交互 */
+  .intro-card-container.expanded {
+    height: auto; /* 允许根据内容自适应高度 */
+    padding: 14px 18px; /* 上下对称：上下 14px，左右 18px，保持一致的紧凑布局 */
+    /* 展开时背景的白色半透明效果保持不变 */
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+  }
+  
