@@ -267,6 +267,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
   const userInteractedRef = useRef(false) // 記錄用戶是否已交互
   const recognitionRef = useRef(null) // Web Speech API 識別對象
   const touchStartYRef = useRef(0) // 觸摸開始時的 Y 座標
+  const textareaRef = useRef(null) // 輸入框引用，用於切換回文字模式時恢復焦點
 
   // 設置持久化：從 localStorage 讀取
   const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(() => {
@@ -1015,6 +1016,8 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       >
         {/* 顶部氛围渐变层 */}
         <div className="top-atmosphere-gradient"></div>
+        {/* 新增渐变遮罩层 (Gradient Shield) - 方案 B：物理遮罩层实现简介卡片渐隐效果 */}
+        <div className="top-mask-shield"></div>
         <div className="mx-auto flex h-full w-full max-w-md flex-col relative">
           {/* Messages - 消息列表容器，使用 flex-1 佔據剩餘空間，overflow-y-auto 實現滾動 */}
           <div
@@ -1198,77 +1201,96 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
           <div className="mx-auto w-full max-w-md">
             {/* 大胶囊收纳：将语音按钮、textarea 和发送按钮全部封装进 .input-wrapper */}
             {isVoiceMode ? (
-              // 語音模式：按住說話按鈕（保持独立，因为需要特殊样式）
-              <button
-                type="button"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchCancel}
-                onMouseDown={handleTouchStart}
-                onMouseMove={handleTouchMove}
-                onMouseUp={handleTouchEnd}
-                onMouseLeave={handleTouchEnd}
-                className={`w-full h-10 rounded-full px-6 text-sm font-medium text-[#333] text-center transition-transform active:scale-95 border border-[#FF9EB5]/30 ${
-                  cancelRecording
-                    ? 'bg-red-500/80 text-white'
-                    : isRecording
-                    ? 'bg-[#FF9EB5]/20'
-                    : 'bg-[#FF9EB5]/10'
-                }`}
-                style={{
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  touchAction: 'none',
-                }}
-                disabled={!isSpeechSupported}
-              >
-                {isRecording ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <motion.div
-                      className="flex items-center gap-1"
-                      initial="rest"
-                      animate="animate"
-                      variants={{
-                        rest: {},
-                        animate: {
-                          transition: {
-                            staggerChildren: 0.1,
-                            repeat: Infinity,
-                          },
-                        },
-                      }}
-                    >
-                      {[0, 1, 2, 3].map((i) => (
-                        <motion.div
-                          key={i}
-                          className={`h-4 w-1 rounded-full ${
-                            cancelRecording ? 'bg-white' : 'bg-[#FF9EB5]'
-                          }`}
-                          variants={{
-                            rest: { height: 8 },
-                            animate: {
-                              height: [8, 20, 8],
-                              transition: {
-                                duration: 0.5,
-                                repeat: Infinity,
-                              },
+              // 語音模式：大胶囊收纳 - 左侧键盘图标 + 中间按住说话按钮
+              <div className="input-wrapper">
+                {/* 左側：切換圖標 - 使用 Keyboard 组件切换到文字输入 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsVoiceMode(false)
+                    // 切换回文字模式后，恢复 textarea 焦点
+                    setTimeout(() => {
+                      textareaRef.current?.focus()
+                    }, 100)
+                  }}
+                  className="voice-toggle-button flex shrink-0 items-center justify-center transition-all hover:opacity-70 active:scale-95"
+                  aria-label="切換到文字輸入"
+                >
+                  <Keyboard className="keyboard-icon" size={24} strokeWidth={1.5} />
+                </button>
+
+                {/* 中間：按住說話按鈕 - flex: 1 自動拉長 */}
+                <button
+                  type="button"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchCancel}
+                  onMouseDown={handleTouchStart}
+                  onMouseMove={handleTouchMove}
+                  onMouseUp={handleTouchEnd}
+                  onMouseLeave={handleTouchEnd}
+                  className={`voice-record-button flex-1 text-sm font-medium text-center transition-transform active:scale-95 ${
+                    cancelRecording
+                      ? 'bg-red-500/80 text-white'
+                      : isRecording
+                      ? 'bg-transparent text-[#191919]'
+                      : 'bg-transparent text-[#191919]'
+                  }`}
+                  style={{
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                    touchAction: 'none',
+                  }}
+                  disabled={!isSpeechSupported}
+                >
+                  {isRecording ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <motion.div
+                        className="flex items-center gap-1"
+                        initial="rest"
+                        animate="animate"
+                        variants={{
+                          rest: {},
+                          animate: {
+                            transition: {
+                              staggerChildren: 0.1,
+                              repeat: Infinity,
                             },
-                          }}
-                        />
-                      ))}
-                    </motion.div>
-                    <span>{cancelRecording ? '鬆開手指，取消發送' : '手指上滑，取消發送'}</span>
-                  </div>
-                ) : (
-                  <span className="text-center">
-                    {!isSpeechSupported 
-                      ? '當前瀏覽器不支持錄音，請使用 Chrome 或 Safari' 
-                      : '按住 說話'}
-                  </span>
-                )}
-              </button>
+                          },
+                        }}
+                      >
+                        {[0, 1, 2, 3].map((i) => (
+                          <motion.div
+                            key={i}
+                            className={`h-4 w-1 rounded-full ${
+                              cancelRecording ? 'bg-white' : 'bg-[#FF9EB5]'
+                            }`}
+                            variants={{
+                              rest: { height: 8 },
+                              animate: {
+                                height: [8, 20, 8],
+                                transition: {
+                                  duration: 0.5,
+                                  repeat: Infinity,
+                                },
+                              },
+                            }}
+                          />
+                        ))}
+                      </motion.div>
+                      <span>{cancelRecording ? '鬆開手指，取消發送' : '手指上滑，取消發送'}</span>
+                    </div>
+                  ) : (
+                    <span className="text-center">
+                      {!isSpeechSupported 
+                        ? '當前瀏覽器不支持錄音，請使用 Chrome 或 Safari' 
+                        : '按住 說話'}
+                    </span>
+                  )}
+                </button>
+              </div>
             ) : (
               // 文字模式：大胶囊收纳 - 将语音按钮、textarea 和发送按钮全部封装进 .input-wrapper
               <div className="input-wrapper">
@@ -1284,6 +1306,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
 
                 {/* 中間：輸入框 - flex: 1 自動拉長 */}
                 <textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}

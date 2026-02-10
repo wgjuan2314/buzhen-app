@@ -30,6 +30,25 @@
   /* 确保这个渐变层不会产生任何硬边缘，平滑地融入页面背景 */
 }
 
+/* 新增渐变遮罩层 (Gradient Shield) - 方案 B：物理遮罩层实现简介卡片渐隐效果（重新设计） */
+.top-mask-shield {
+  position: fixed; /* 遮罩层位置与高度调整：覆盖整个 Header 区域及其下方 */
+  top: 0; /* 遮罩层位置与高度调整：top 设为 0，覆盖整个 Header 区域及其下方 */
+  left: 0;
+  width: 100%;
+  height: 100px; /* 遮罩层位置与高度调整：将 height 增加到 100px（提供更长的缓冲带） */
+  /* 核心渐变逻辑（重塑迷雾）：从"全实心"到"全透明"的深度渐变 */
+  /* 颜色更新：将背景渐变起始色修改为 #FCD3D6，优化顶部实心区的融合度 */
+  /* 完整背景定义：linear-gradient(to bottom, #FCD3D6 0%, #FCD3D6 60%, rgba(252, 211, 214, 0) 100%) */
+  /* 逻辑解释：
+     - 0%-60%：完全实心（#FCD3D6），确保背景与顶部氛围完美融合，文字滑上去彻底看不见
+     - 60%-100%：在最后的 40px 内完成从实心到透明的极速晕染，产生梦幻的消隐感 */
+  /* 视觉检查：观察简介卡片（IntroCard）滑入此颜色区域时，是否像钻进了暖粉色的云雾中 */
+  background: linear-gradient(to bottom, #FCD3D6 0%, #FCD3D6 60%, rgba(252, 211, 214, 0) 100%);
+  z-index: 110; /* 层级与点击安全：保持在 110，确保它在对话气泡上方，但在江予白头像和设置按钮下方 */
+  pointer-events: none; /* 层级与点击安全：必须保留 pointer-events: none;，确保不影响用户点击简介卡片或对话框 */
+}
+
 /* 顶部 Header */
 .chat-header {
   background: rgba(255, 255, 255, 0.4);
@@ -154,11 +173,12 @@
   transition: width 0.3s ease;
 }
 
-/* 消息列表容器 - 大幅缩小屏幕左右边距 */
+/* 消息列表容器 - 大幅缩小屏幕左右边距，优化滚动消隐效果 */
 .message-list {
   padding-top: 50px; /* 消除冗余间距：从 140px 减少 90px 到 50px，与简介容器上移保持一致 */
   padding-left: 12px; /* 全局容器边距校准：确保所有头像和气泡的活动区域紧贴屏幕边缘 12px 处 */
   padding-right: 12px; /* 全局容器边距校准：确保所有头像和气泡的活动区域紧贴屏幕边缘 12px 处 */
+  /* 移除旧逻辑：彻底删除 .message-list 上的 -webkit-mask-image 属性，改用方案 B（物理遮罩层） */
 }
 
 /* 消息项容器 - 带头像的布局，极限收缩对话框垂直间距 */
@@ -390,6 +410,32 @@
   object-fit: contain;
 }
 
+/* 键盘图标 - 语音模式下切换到文字输入的图标 */
+.keyboard-icon {
+  width: 24px; /* 图标尺寸：24x24px，与语音图标保持一致 */
+  height: 24px;
+  color: #333333; /* 颜色：与整体风格协调 */
+  flex-shrink: 0;
+  margin-right: 8px; /* 键盘图标右边距：8px，与按住说话按钮保持间距 */
+}
+
+/* 语音录制按钮 - 语音模式下的中间按钮 */
+.voice-record-button {
+  flex: 1; /* 中间按钮自动拉长，撑满剩余空间 */
+  min-width: 0; /* 防止 flex 子元素溢出 */
+  height: 48px; /* 高度与容器一致：48px */
+  min-height: 48px; /* 最小高度锁定 */
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
+  background: transparent; /* 背景透明，融入胶囊容器 */
+  border: none; /* 移除边框 */
+  border-radius: 0; /* 移除圆角，在胶囊内部自然排布 */
+  padding: 0; /* 移除内边距 */
+  color: #191919; /* 文字颜色：#191919 */
+  position: relative; /* 确保在 Flex 流中自然排布，不使用 absolute */
+}
+
 /* 输入框 textarea - flex: 1 自动拉长，像素级还原：48px 高度 */
 .input-textarea {
   flex: 1; /* 中间 textarea 设为 flex: 1 自动拉长 */
@@ -539,7 +585,8 @@
 .intro-card-container {
   position: relative !important; 
   width: calc(100% - 24px) !important; /* 核心：恢复左右 12px 边距 */
-  margin: 36px auto 0 !important; /* 核心：垂直间距及居中 */
+  /* 恢复位置：将 .intro-card-container 的 margin-top 恢复为初始的 36px，确保它紧贴顶部 Header 区域 */
+  margin: 36px auto 0 !important; /* 恢复位置：恢复原本的视觉紧凑感，简介卡片紧贴顶部 Header 区域 */
   background: rgba(255, 255, 255, 0.5) !important; /* 调整背景透明度：将背景色从 rgba(255, 255, 255, 0.7) 修改为 rgba(255, 255, 255, 0.5) */
   border: 1px solid #FCD7D0 !important; /* Rectangle 6 的边框色 */
   border-radius: 15px !important;
