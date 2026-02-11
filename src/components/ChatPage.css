@@ -644,11 +644,13 @@
 .intro-card-collapsed-text,
 .intro-card-expanded-text {
   font-size: 12px; /* 正文字号设定为 12px，保持精致感 */
-  line-height: 1.6; /* 行高设为 1.6，确保阅读时有呼吸感 */
-  color: #999999; /* 正文颜色：将简介下方的详细描述文字颜色统一修改为 #999999，通过弱化描述段落来提升界面的精致感 */
+  line-height: 1.6; /* 行高设为 1.6，增加阅读的舒适度 */
+  color: #999999; /* 正文颜色：保持淡灰色，与背景色 #FCD3D6 及其渐变层保持视觉统合 */
   text-align: left;
   margin: 0;
   padding-top: 4px; /* 确保下方正文内容有足够的 padding-top，不与上方标签重叠 */
+  word-wrap: break-word; /* 确保长文本自动换行，不会溢出 */
+  overflow-wrap: break-word; /* 兼容性：确保长文本自动换行 */
 }
 
 /* 折叠状态：显示前两行，结尾使用 ... 截断 */

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle, 
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Settings, CirclePlus, Play, Mic, Keyboard, Send } from 'lucide-react'
-import { streamChat } from '../services/DifyService'
+import { streamChat, saveConversationId } from '../services/DifyService'
 import { generateSpeech, setBgmState } from '../services/VoiceService'
 import IntroCard from './IntroCard'
 import avatarImg from '../assets/avatar.jpg'
@@ -387,8 +387,14 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
     abortRef.current = controller
 
     try {
+      // 獲取客戶端本地時間（中文格式，24小時制）
+      const clientLocalTime = new Date().toLocaleString('zh-CN', { hour12: false })
+
       await streamChat({
         query: trimmedQuery, // 確保是非空字符串
+        inputs: {
+          client_local_time: clientLocalTime, // 傳遞客戶端本地時間給 Dify 後端
+        },
         onDelta: (delta) => {
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + delta } : m)),
@@ -423,13 +429,31 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       // 注意：語音播放將在打字機效果完成後觸發（通過 Typewriter 的 onComplete 回調）
     } catch (error) {
       console.error('对话流式输出出错:', error)
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: `${m.content}\n\n[Error] ${error?.message || String(error)}` }
-            : m,
-        ),
-      )
+      
+      // 【臨時修復】404 錯誤時清除 conversation_id，解決更換 API 後的緩存問題
+      if (error?.message?.includes('404') || error?.message?.includes('Dify API 錯誤 404')) {
+        console.warn('[ChatPage] 檢測到 404 錯誤，清除 conversation_id 緩存並重新初始化')
+        try {
+          saveConversationId(null) // 使用 DifyService 的函數清除 conversation_id
+          // 移除錯誤消息，讓用戶可以重新發送
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId))
+          // 可選：自動重新發送（如果需要）
+          // setTimeout(() => {
+          //   sendMessage(trimmedQuery)
+          // }, 500)
+        } catch (clearError) {
+          console.error('[ChatPage] 清除 conversation_id 失敗:', clearError)
+        }
+      } else {
+        // 其他錯誤：顯示錯誤消息
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `${m.content}\n\n[Error] ${error?.message || String(error)}` }
+              : m,
+          ),
+        )
+      }
     } finally {
       setIsStreaming(false)
       abortRef.current = null

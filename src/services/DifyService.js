@@ -145,6 +145,12 @@ export const streamChat = async ({
         responseHeaders: Object.fromEntries(response.headers.entries()),
       })
 
+      // 【臨時修復】404 錯誤時清除 conversation_id，解決更換 API 後的緩存問題
+      if (response.status === 404) {
+        console.warn('[DifyService] 檢測到 404 錯誤，清除 conversation_id 緩存')
+        saveConversationId(null) // 清除 conversation_id
+      }
+
       throw error
     }
 
