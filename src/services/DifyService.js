@@ -9,6 +9,11 @@ export const API_KEY = rawApiKey.trim()
 
 // localStorage key
 const CONVERSATION_ID_KEY = 'dify_conversation_id'
+const USER_IP_KEY = 'dify_user_ip'
+const USER_IP_TIMESTAMP_KEY = 'dify_user_ip_timestamp'
+
+// IP 緩存有效期（24小時）
+const IP_CACHE_DURATION = 24 * 60 * 60 * 1000
 
 // 獲取持久化的 conversation_id
 export const getConversationId = () => {
@@ -16,6 +21,80 @@ export const getConversationId = () => {
     return localStorage.getItem(CONVERSATION_ID_KEY) || null
   } catch {
     return null
+  }
+}
+
+// 獲取用戶 IP 地址（帶緩存機制）
+const getUserIP = async () => {
+  try {
+    // 檢查緩存
+    const cachedIP = localStorage.getItem(USER_IP_KEY)
+    const cachedTimestamp = localStorage.getItem(USER_IP_TIMESTAMP_KEY)
+    
+    if (cachedIP && cachedTimestamp) {
+      const timestamp = parseInt(cachedTimestamp, 10)
+      const now = Date.now()
+      
+      // 如果緩存未過期（24小時內），直接返回緩存的 IP
+      if (now - timestamp < IP_CACHE_DURATION) {
+        console.log('[DifyService] 使用緩存的用戶 IP:', cachedIP)
+        return cachedIP
+      }
+    }
+
+    // 緩存過期或不存在，重新獲取 IP
+    console.log('[DifyService] 正在獲取用戶 IP...')
+    
+    // 創建超時控制器（兼容性處理）
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超時
+    
+    try {
+      const response = await fetch('https://api.ipify.org?format=json', {
+        method: 'GET',
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId) // 清除超時計時器
+
+      if (!response.ok) {
+        throw new Error(`IP 獲取失敗: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const userIP = data.ip
+
+      if (userIP && typeof userIP === 'string') {
+        // 保存到緩存
+        try {
+          localStorage.setItem(USER_IP_KEY, userIP)
+          localStorage.setItem(USER_IP_TIMESTAMP_KEY, String(Date.now()))
+          console.log('[DifyService] 用戶 IP 獲取成功並已緩存:', userIP)
+        } catch (storageError) {
+          console.warn('[DifyService] 保存 IP 到緩存失敗:', storageError)
+        }
+        return userIP
+      } else {
+        throw new Error('IP 格式無效')
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId) // 確保清除超時計時器
+      throw fetchError
+    }
+  } catch (error) {
+    console.warn('[DifyService] 獲取用戶 IP 失敗:', error.message)
+    
+    // 容錯處理：如果獲取失敗，嘗試使用緩存的 IP（即使過期）
+    const cachedIP = localStorage.getItem(USER_IP_KEY)
+    if (cachedIP) {
+      console.log('[DifyService] 使用過期緩存的 IP:', cachedIP)
+      return cachedIP
+    }
+    
+    // 如果緩存也沒有，返回默認值
+    const defaultIP = '114.248.x.x'
+    console.warn('[DifyService] 使用默認 IP:', defaultIP)
+    return defaultIP
   }
 }
 
@@ -70,6 +149,9 @@ export const streamChat = async ({
   // 從 localStorage 獲取 conversation_id（優先使用傳入的，否則從 localStorage 獲取）
   const persistedConversationId = conversationId || getConversationId()
 
+  // 獲取用戶 IP（帶緩存和容錯處理）
+  const userIP = await getUserIP()
+
   // 構建完整的請求 URL
   const requestUrl = `${BASE_URL}/chat-messages`
 
@@ -78,6 +160,7 @@ export const streamChat = async ({
     inputs: {
       total_rounds: 0,
       is_logged_in: true,
+      user_ip: userIP, // 添加用戶 IP 字段，供 Dify 後端天氣插件使用
       ...inputs,
     },
     query: queryText,
