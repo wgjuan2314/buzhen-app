@@ -1,64 +1,34 @@
 /**
- * TTS API Route - Zeabur Serverless Function
- * 后端代理：代表服务器请求 MiniMax API，解决 CORS 问题
+ * TTS API Route - Zeabur 优化版
  */
+export default async function (req, res) {
+  // 显式处理跨域（防止某些情况下的二次拦截）
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-export default async function handler(req) {
-  // 只允许 POST 请求
+  // 处理预检请求
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { 
-        status: 405,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    return res.status(405).json({ error: '请使用 POST 请求' });
   }
 
   try {
-    // 从环境变量读取 MiniMax 配置
-    const API_KEY = process.env.MINIMAX_API_KEY || process.env.VITE_MINIMAX_API_KEY
-    const GROUP_ID = process.env.MINIMAX_GROUP_ID || process.env.VITE_MINIMAX_GROUP_ID || '2007418972814713648'
-    const VOICE_ID = process.env.MINIMAX_VOICE_ID || process.env.VITE_MINIMAX_VOICE_ID || 'ttv-voice-2026010417565226-BIc2kWY0'
+    // 自动兼容两种可能的环境变量名
+    const API_KEY = process.env.MINIMAX_API_KEY || process.env.VITE_MINIMAX_API_KEY;
+    const GROUP_ID = process.env.MINIMAX_GROUP_ID || process.env.VITE_MINIMAX_GROUP_ID || '2007418972814713648';
+    
+    // 从请求体获取数据，增加兜底解析
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { text, voice_id } = body || {};
 
-    if (!API_KEY) {
-      console.error('[TTS API] MiniMax API Key 未配置')
-      return new Response(
-        JSON.stringify({ error: 'MiniMax API Key not configured' }),
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
+    if (!text) return res.status(400).json({ error: '缺少文本内容' });
 
-    // 解析请求体
-    const body = await req.json()
-    const { text, voice_id, speed = 1.0, vol = 1.0, pitch = 0 } = body
+    const minimaxUrl = `https://api.minimax.chat/v1/text_to_speech?GroupId=${GROUP_ID}`;
 
-    if (!text || typeof text !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Text parameter is required' }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // 使用传入的 voice_id 或默认值
-    const finalVoiceId = voice_id || VOICE_ID
-
-    // 构造 MiniMax API 请求
-    const minimaxUrl = `https://api.minimax.chat/v1/text_to_speech?GroupId=${GROUP_ID}`
-
-    console.log('[TTS API] 请求 MiniMax API:', {
-      url: minimaxUrl,
-      voiceId: finalVoiceId,
-      textLength: text.length
-    })
-
-    // 代表服务器请求 MiniMax API
     const response = await fetch(minimaxUrl, {
       method: 'POST',
       headers: {
@@ -68,57 +38,25 @@ export default async function handler(req) {
       body: JSON.stringify({
         model: 'speech-01',
         text: text,
-        voice_id: finalVoiceId,
-        speed: speed,
-        vol: vol,
-        pitch: pitch,
+        voice_id: voice_id || 'ttv-voice-2026010417565226-BIc2kWY0',
+        speed: 1.0,
+        vol: 1.0,
+        pitch: 0,
         stream: false
       })
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[TTS API] MiniMax API 请求失败:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      })
-      return new Response(
-        JSON.stringify({ 
-          error: 'MiniMax API request failed',
-          status: response.status,
-          details: errorText
-        }),
-        { 
-          status: response.status,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+      const errorData = await response.text();
+      return res.status(response.status).send(errorData);
     }
 
-    // 获取音频 blob
-    const audioBlob = await response.blob()
-
-    // 返回音频数据
-    return new Response(audioBlob, {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'no-cache'
-      }
-    })
+    const arrayBuffer = await response.arrayBuffer();
+    res.setHeader('Content-Type', 'audio/mpeg');
+    // 使用 send 发送 Buffer 数据
+    return res.status(200).send(Buffer.from(arrayBuffer));
 
   } catch (error) {
-    console.error('[TTS API] 服务器错误:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        message: error.message
-      }),
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    return res.status(500).json({ error: error.message });
   }
 }
