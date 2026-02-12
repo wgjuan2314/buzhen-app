@@ -84,11 +84,10 @@ export const setBgmState = (enabled) => {
 
 /**
  * 语音合成播放逻辑 (使用独立的 VoiceInstance 通道)
+ * 通过后端 API 代理请求 MiniMax，解决 CORS 问题
  */
 export async function generateSpeech(text) {
-  // 这里的 Key 会优先读取 Zeabur 设置的环境变量，如果没有则回退到你刚才提供的硬编码
-  const API_KEY = getEnv('VITE_MINIMAX_API_KEY') || 'sk-api-Sy6SXYeKULXtll8z482xG_dRBdOjD_VdTD8-pBjm1dVOmi7WbY0dX65uMgBl5LAJDXWYbdFqiwUYYOiQZwyXs8yJDlBOYARqZaOa70r_uAAEdGxpaD5UOA4';
-  const GROUP_ID = getEnv('VITE_MINIMAX_GROUP_ID') || '2007418972814713648';
+  // 获取环境变量（用于 voice_id，如果后端需要）
   const VOICE_ID = getEnv('VITE_MINIMAX_VOICE_ID') || 'ttv-voice-2026010417565226-BIc2kWY0';
 
   if (!text) return;
@@ -101,35 +100,34 @@ export async function generateSpeech(text) {
 
   if (!cleanedText) return;
 
-  // 2. 构造请求 (直接请求 MiniMax 官网，不走本地代理)
-  const url = `https://api.minimax.chat/v1/text_to_speech?GroupId=${GROUP_ID}`;
+  // 2. 请求我们自己的后端 API（解决 CORS 问题）
+  const apiUrl = '/api/tts';
 
-  // 【強制驗證】硬編碼測試 ID，排除環境變量讀取失敗的可能性
-  const testVoiceId = 'ttv-voice-2026010417565226-BIc2kWY0';
-  
-  // 【調試日誌】打印當前使用的 voice_id
-  console.log('🔍 [MiniMax] 當前使用的 voice_id:', VOICE_ID);
-  console.log("DEBUG - 發送的最終ID:", testVoiceId);
+  console.log('🔍 [VoiceService] 请求后端 TTS API:', {
+    url: apiUrl,
+    voiceId: VOICE_ID,
+    textLength: cleanedText.length
+  });
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY.trim()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: "speech-01",
         text: cleanedText,
-        voice_id: testVoiceId,
+        voice_id: VOICE_ID,
         speed: 1.0,
         vol: 1.0,
-        pitch: 0,
-        stream: false
+        pitch: 0
       })
     });
 
-    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(`TTS API Error ${response.status}: ${errorData.error || response.statusText}`);
+    }
 
     const blob = await response.blob();
     const audioUrl = URL.createObjectURL(blob);
