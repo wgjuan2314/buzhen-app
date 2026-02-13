@@ -13,6 +13,7 @@ import iconPhone from '../assets/v2/icon-phone.png'
 import iconSet from '../assets/v2/icon-set.png'
 import iconFriendsCircle from '../assets/v2/icon-friends-circle.png'
 import MomentsModal from './MomentsModal'
+import VideoCallModal from './VideoCallModal'
 import avatarBig from '../assets/v2/avatar-main-big.png'
 import iconMedal from '../assets/v2/icon-medal.png'
 import avatarAISmall from '../assets/v2/avatar-ai-small.png'
@@ -274,6 +275,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
   const [micPermissionGranted, setMicPermissionGranted] = useState(false) // 麥克風權限是否已授予
   const [isSettingsOpen, setIsSettingsOpen] = useState(false) // 設置彈窗開關
   const [isMomentsOpen, setIsMomentsOpen] = useState(false) // 朋友圈彈窗
+  const [isVideoCallOpen, setIsVideoCallOpen] = useState(false) // 視頻通話彈窗
   const [voiceDurations, setVoiceDurations] = useState({}) // 存儲每個訊息的語音時長（秒）
   const [completedStreamingIds, setCompletedStreamingIds] = useState(new Set()) // 記錄已完成流式輸出的消息 ID
   const [typewriterCompletedIds, setTypewriterCompletedIds] = useState(new Set()) // 記錄已完成打字機效果的消息 ID
@@ -952,6 +954,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
               className="header-icon-button"
               type="button"
               aria-label="电话"
+              onClick={() => setIsVideoCallOpen(true)}
             >
               <img src={iconPhone} alt="电话" className="header-icon-img" />
             </button>
@@ -1575,6 +1578,13 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       <AnimatePresence>
         {isMomentsOpen && (
           <MomentsModal key="moments-modal" onClose={() => setIsMomentsOpen(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* 視頻通話：全屏偽交互頁 */}
+      <AnimatePresence>
+        {isVideoCallOpen && (
+          <VideoCallModal key="video-call-modal" onClose={() => setIsVideoCallOpen(false)} />
         )}
       </AnimatePresence>
     </>

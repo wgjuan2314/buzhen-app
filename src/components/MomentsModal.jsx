@@ -90,9 +90,6 @@ export default function MomentsModal({ onClose }) {
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
         </button>
-        <span className="absolute left-1/2 -translate-x-1/2 text-base font-medium text-white drop-shadow-md">
-          朋友圈
-        </span>
       </header>
 
       {/* 内容流：可滑动浏览，隐藏滚动条 */}
