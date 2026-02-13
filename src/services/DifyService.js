@@ -382,7 +382,7 @@ export const streamChat = async ({
               }
             } catch (parseError) {
               // 忽略無效的 JSON 行（這是正常的，因為流式響應可能包含不完整的數據）
-              if (process.env.NODE_ENV === 'development') {
+              if (import.meta.env.DEV) {
                 console.debug('[DifyService] JSON 解析跳過:', parseError.message)
               }
             }
