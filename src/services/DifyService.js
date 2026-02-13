@@ -117,6 +117,170 @@ const maskApiKey = (key) => {
   return `${key.slice(0, 4)}...${key.slice(-4)}`
 }
 
+/**
+ * 一步到位：支持所有 Dify 返回格式的統一解析（含雙層 JSON 嵌套）
+ * 格式 1（推薦）：JSON - {"text":"xxx","audio_url":"yyy"} 或雙層嵌套 {"text":"{\"text\":\"xxx\",\"audio_url\":\"yyy\"}"}
+ * 格式 2：標準分隔符 - text=xxx&audio_url=yyy&has_audio=True
+ * 格式 3：直接拼接 - text=xxxhttps://yyy 或 text=xxxupload.dify.ai/yyy
+ * @returns {{ text: string, audioUrl: string|null, hasAudio: boolean }}
+ */
+const parseCompositeResponse = (str) => {
+  const fallback = { text: '', audioUrl: null, hasAudio: false }
+  if (!str || typeof str !== 'string') return fallback
+  const s = str.trim()
+  let text = ''
+  let audioUrl = null
+  
+  try {
+    // ========== 格式 1：JSON（最優先，支持雙層嵌套） ==========
+    if (s.startsWith('{')) {
+      try {
+        const json = JSON.parse(s)
+        text = json.text || ''
+        audioUrl = json.audio_url || json.audioUrl || null
+        
+        console.log('[DifyService] 🔍 外層 JSON 解析:', { text: text?.slice(0, 80), audioUrl: audioUrl?.slice(0, 80) })
+        
+        // 雙層嵌套檢測：如果 text 本身又是 JSON 字符串，再解析一次
+        if (text && typeof text === 'string' && text.trim().startsWith('{')) {
+          console.log('[DifyService] 🔍 檢測到雙層 JSON，嘗試解析內層...')
+          try {
+            const innerJson = JSON.parse(text)
+            text = innerJson.text || ''
+            audioUrl = innerJson.audio_url || innerJson.audioUrl || audioUrl || null
+            console.log('[DifyService] ✅ 雙層 JSON 解析成功 - text:', text?.slice(0, 50), 'audioUrl:', audioUrl?.slice(0, 60))
+          } catch (innerErr) {
+            // 內層解析失敗：不使用外層的 JSON 字符串
+            console.warn('[DifyService] ❌ 內層 JSON 解析失敗，清空文本避免顯示 JSON:', innerErr?.message)
+            text = ''
+            audioUrl = null
+          }
+        }
+        
+        // 最終檢查：確保 text 不是 JSON 字符串
+        if (text && text.trim().startsWith('{')) {
+          console.warn('[DifyService] ⚠️ 提取的 text 仍是 JSON 格式，清空:', text.slice(0, 80))
+          text = ''
+        }
+        
+        const hasAudio = !!audioUrl
+        console.log('[DifyService] ✅ 最終 JSON 解析結果 - text:', text?.slice(0, 50), 'audioUrl:', audioUrl?.slice(0, 80), 'hasAudio:', hasAudio)
+        return { text, audioUrl, hasAudio }
+      } catch (jsonErr) {
+        console.warn('[DifyService] ❌ JSON 解析失敗，嘗試其他格式:', jsonErr?.message, 'raw:', s.slice(0, 100))
+      }
+    }
+    
+    // ========== 格式 2：標準分隔符 text=xxx&audio_url=yyy ==========
+    const standardTextMatch = s.match(/text=(.*?)&audio_url=/)
+    const standardAudioMatch = s.match(/&audio_url=(.*?)(?:&has_audio=|$)/)
+    if (standardTextMatch && standardAudioMatch) {
+      text = standardTextMatch[1] || ''
+      audioUrl = standardAudioMatch[1] || null
+      try { text = decodeURIComponent(text.replace(/\+/g, ' ')) } catch {}
+      try { if (audioUrl) audioUrl = decodeURIComponent(audioUrl.replace(/\+/g, ' ')) } catch {}
+    } else {
+      // ========== 格式 3：直接拼接 text=xxxURL ==========
+      const urlWithProtocol = s.match(/text=(.*?)(https?:\/\/[^\s]+\.mp3[^\s]*)/)
+      if (urlWithProtocol) {
+        text = urlWithProtocol[1] || ''
+        audioUrl = urlWithProtocol[2] || null
+      } else {
+        const urlWithoutProtocol = s.match(/text=(.*?)(upload\.dify\.ai\/files\/[^\s]+\.mp3[^\s]*)/)
+        if (urlWithoutProtocol) {
+          text = urlWithoutProtocol[1] || ''
+          audioUrl = urlWithoutProtocol[2] ? `https://${urlWithoutProtocol[2]}` : null
+        } else {
+          // 無法解析，返回原始文本（過濾敏感內容）
+          text = s.replace(/^text=/, '').replace(/&audio_url=.*$/g, '').replace(/https?:\/\/[^\s]*/g, '').replace(/upload\.dify\.ai[^\s]*/g, '').trim()
+        }
+      }
+    }
+    
+    // 清理文本：移除殘留標記
+    if (text) {
+      text = text
+        .replace(/\s*&has_audio=[^\s&]*/gi, '')
+        .replace(/\s*has_audio=[^\s&]*/gi, '')
+        .replace(/\s*(True|true|1)\s*$/g, '')
+        .trim()
+    }
+  } catch (parseErr) {
+    console.warn('[DifyService] 解析失敗:', parseErr?.message || parseErr, 'raw:', s?.slice(0, 80))
+    return fallback
+  }
+  
+  const hasAudio = !!audioUrl
+  console.log('[DifyService] 解析結果 - text:', text?.slice(0, 50), 'audioUrl:', audioUrl?.slice(0, 80), 'hasAudio:', hasAudio)
+  return { text, audioUrl, hasAudio }
+}
+
+/** URL 合法性檢查：必須以 http 開頭且包含 .mp3，否則不觸發播放 */
+const isAudioUrlValid = (url) => {
+  if (!url || typeof url !== 'string') return false
+  const u = url.trim()
+  return (u.startsWith('http://') || u.startsWith('https://')) && u.includes('.mp3')
+}
+
+/** 補全相對路徑為絕對 URL（使用 BASE_URL 的 origin，默認 https://api.dify.ai） */
+const completeAudioUrl = (url) => {
+  if (!url || typeof url !== 'string') return null
+  const u = url.trim()
+  if (u.startsWith('http://') || u.startsWith('https://')) return u
+  try {
+    const baseOrigin = BASE_URL && BASE_URL.startsWith('http') ? new URL(BASE_URL).origin : 'https://api.dify.ai'
+    return baseOrigin + (u.startsWith('/') ? u : '/' + u)
+  } catch {
+    return 'https://api.dify.ai' + (u.startsWith('/') ? u : '/' + u)
+  }
+}
+
+/** 安全觸發 onAudio：先檢查 URL 合法性，並 console.log 完整 URL */
+const safeTriggerOnAudio = (audioUrl, onAudio) => {
+  if (!onAudio || !audioUrl) return
+  console.log('🔗 提取到的完整URL:', audioUrl)
+  if (!isAudioUrlValid(audioUrl)) {
+    console.warn('[DifyService] URL 不合法，跳過播放:', audioUrl?.slice(0, 80))
+    return
+  }
+  try {
+    onAudio(audioUrl)
+  } catch (e) {
+    console.warn('[DifyService] onAudio 回調錯誤:', e)
+  }
+}
+
+/** 安全觸發 onVoiceReady：URL 補全後立即回調，不等待文本傳輸完成 */
+const safeTriggerOnVoiceReady = (audioUrl, onVoiceReady) => {
+  if (!onVoiceReady || !audioUrl) return
+  const fullUrl = completeAudioUrl(audioUrl)
+  if (!fullUrl || !isAudioUrlValid(fullUrl)) {
+    console.warn('[DifyService] onVoiceReady URL 不合法，跳過:', audioUrl?.slice(0, 80))
+    return
+  }
+  console.log('🔗 [onVoiceReady] 即時回調 URL:', fullUrl)
+  try {
+    onVoiceReady(fullUrl)
+  } catch (e) {
+    console.warn('[DifyService] onVoiceReady 回調錯誤:', e)
+  }
+}
+
+/** 檢測是否為複合格式（用於流式緩衝），一步到位支持所有格式 */
+const looksLikeComposite = (str) => {
+  if (!str || typeof str !== 'string') return false
+  const s = str.trim()
+  // 格式 1：JSON - 任何以 { 開頭的都可能是 JSON（即使還不完整）
+  if (s.startsWith('{')) return true
+  // 格式 2：標準分隔符 - text=xxx&audio_url=yyy
+  if (s.includes('text=') && (s.includes('&audio_url=') || s.includes('&has_audio='))) return true
+  // 格式 3：直接拼接 - text=xxxURL
+  if (s.includes('text=') && (s.includes('https://') || s.includes('http://') || s.includes('upload.dify.ai') || s.includes('.mp3'))) return true
+  // 可能是複合格式的開頭
+  if (s.startsWith('text=')) return true
+  return false
+}
+
 export const streamChat = async ({
   query,
   conversationId,
@@ -125,6 +289,8 @@ export const streamChat = async ({
   onDelta,
   onMeta,
   onLoginRequired,
+  onAudio,
+  onVoiceReady,
   signal,
 }) => {
   // Body 校驗：確保 query 是有效字串
@@ -267,6 +433,9 @@ export const streamChat = async ({
     let currentConversationId = persistedConversationId
     let loginRequiredDetected = false
     let accumulatedContent = '' // 累積內容，用於檢查 LOGIN_REQUIRED
+    let compositeBuffer = '' // 複合格式緩衝（text=&audio_url=&has_audio=）
+    let jsonDeltaBuffer = '' // 流式 JSON 片段緩衝，確保完整後再 JSON.parse
+    let voiceReadyFired = false // 本輪是否已觸發 onVoiceReady，避免重複
 
     // 流式處理：健壯的讀取循環
     try {
@@ -274,6 +443,46 @@ export const streamChat = async ({
         const { done, value } = await reader.read()
 
         if (done) {
+          // 流結束時先刷新 JSON buffer（確保 192 環境下未完整傳完的 JSON 也能解析）
+          if (jsonDeltaBuffer) {
+            try {
+              const parsed = JSON.parse(jsonDeltaBuffer)
+              let safeText = (parsed.text ?? parsed.answer ?? '').trim()
+              let audioUrl = parsed.audio_url ?? parsed.audioUrl ?? null
+              if (typeof safeText === 'string' && safeText.startsWith('{')) {
+                try {
+                  const inner = JSON.parse(safeText)
+                  safeText = (inner.text ?? inner.answer ?? '').trim()
+                  audioUrl = inner.audio_url ?? inner.audioUrl ?? audioUrl
+                } catch (_) {}
+              }
+              if (audioUrl && !voiceReadyFired) safeTriggerOnVoiceReady(audioUrl, onVoiceReady)
+              if (audioUrl && onAudio) safeTriggerOnAudio(completeAudioUrl(audioUrl) || audioUrl, onAudio)
+              if (safeText && onDelta) {
+                try { onDelta(safeText) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+              }
+            } catch (_) {
+              const parsed = parseCompositeResponse(jsonDeltaBuffer)
+              if (parsed.audioUrl && !voiceReadyFired) safeTriggerOnVoiceReady(parsed.audioUrl, onVoiceReady)
+              if (parsed.audioUrl && onAudio) safeTriggerOnAudio(parsed.audioUrl, onAudio)
+              if (parsed.text && onDelta) {
+                try { onDelta(parsed.text) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+              }
+            }
+            jsonDeltaBuffer = ''
+          }
+          // 流結束時處理未完成的複合格式緩衝
+          if (compositeBuffer) {
+            console.log('[DifyService] 流結束時刷新 compositeBuffer:', compositeBuffer.slice(0, 100))
+            const parsed = parseCompositeResponse(compositeBuffer)
+            const safeText = parsed.text || ''
+            if (parsed.audioUrl && !voiceReadyFired) safeTriggerOnVoiceReady(parsed.audioUrl, onVoiceReady)
+            if (safeText && onDelta) {
+              try { onDelta(safeText) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+            }
+            if (parsed.audioUrl && onAudio) safeTriggerOnAudio(parsed.audioUrl, onAudio)
+            compositeBuffer = ''
+          }
           console.log('[DifyService] 流式響應完成')
           break
         }
@@ -326,10 +535,111 @@ export const streamChat = async ({
                 }
               }
 
+              // 捕獲 Dify 內置 TTS 音頻輸出
+              if (onAudio) {
+                const audioData = json.audio ?? json.audio_url ?? json.message?.audio ?? json.data?.audio
+                if (audioData) {
+                  try {
+                    let audioContent
+                    if (typeof audioData === 'string') {
+                      if (audioData.startsWith('http')) {
+                        audioContent = audioData
+                      } else {
+                        const binary = atob(audioData)
+                        const bytes = new Uint8Array(binary.length)
+                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+                        audioContent = new Blob([bytes], { type: 'audio/mpeg' })
+                      }
+                    } else if (audioData instanceof Blob) {
+                      audioContent = audioData
+                    }
+                    if (audioContent) {
+                      if (typeof audioContent === 'string') {
+                        safeTriggerOnAudio(audioContent, onAudio)
+                      } else {
+                        onAudio(audioContent)
+                      }
+                    }
+                  } catch (audioError) {
+                    console.warn('[DifyService] 音頻解析錯誤:', audioError)
+                  }
+                }
+              }
+
               // 提取 delta 內容
               const delta = json.answer ?? json.delta ?? json.text
               if (typeof delta === 'string' && delta.length) {
                 accumulatedContent += delta
+
+                // 【192 環境修復】JSON 流式 buffer：僅在 JSON 完整後才 parse，解析出 audio_url 立即 onVoiceReady
+                const isJsonStart = delta.trim().startsWith('{')
+                if (jsonDeltaBuffer || isJsonStart) {
+                  jsonDeltaBuffer += delta
+                  let parsed = null
+                  try {
+                    parsed = JSON.parse(jsonDeltaBuffer)
+                  } catch (_) {
+                    // 不完整，繼續累積
+                    continue
+                  }
+                  // 完整 JSON 解析成功
+                  let safeText = (parsed.text ?? parsed.answer ?? '').trim()
+                  let audioUrl = parsed.audio_url ?? parsed.audioUrl ?? null
+                  if (typeof safeText === 'string' && safeText.startsWith('{')) {
+                    try {
+                      const inner = JSON.parse(safeText)
+                      safeText = (inner.text ?? inner.answer ?? '').trim()
+                      audioUrl = inner.audio_url ?? inner.audioUrl ?? audioUrl
+                    } catch (_) {}
+                  }
+                  // 即時回調：一旦有 audio_url 立即傳出，不等待文本傳完
+                  if (audioUrl && !voiceReadyFired) {
+                    safeTriggerOnVoiceReady(audioUrl, onVoiceReady)
+                    voiceReadyFired = true
+                  }
+                  if (onAudio && audioUrl) safeTriggerOnAudio(completeAudioUrl(audioUrl) || audioUrl, onAudio)
+                  const isCleanText = safeText && !safeText.includes('"text"') && !safeText.includes('"audio_url"')
+                  if (isCleanText && onDelta) {
+                    try { onDelta(safeText) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+                  }
+                  jsonDeltaBuffer = ''
+                  continue
+                }
+
+                // 複合格式處理（非 JSON）：標準分隔符、直接拼接
+                if (compositeBuffer) {
+                  compositeBuffer += delta
+                  const parsed = parseCompositeResponse(compositeBuffer)
+                  const safeText = parsed.text || ''
+                  const isJsonComplete = compositeBuffer.trim().startsWith('{') && compositeBuffer.trim().endsWith('}')
+                  if (isJsonComplete || (safeText.length > 0 && !safeText.includes('"'))) {
+                    if (parsed.audioUrl && !voiceReadyFired) {
+                      safeTriggerOnVoiceReady(parsed.audioUrl, onVoiceReady)
+                      voiceReadyFired = true
+                    }
+                    if (parsed.audioUrl) safeTriggerOnAudio(parsed.audioUrl, onAudio)
+                    if (safeText && onDelta) {
+                      try { onDelta(safeText) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+                    }
+                    compositeBuffer = ''
+                  }
+                  continue
+                }
+                if (looksLikeComposite(delta) && !delta.trim().startsWith('{')) {
+                  compositeBuffer = delta
+                  const parsed = parseCompositeResponse(compositeBuffer)
+                  const safeText = parsed.text || ''
+                  if (parsed.audioUrl && !voiceReadyFired) {
+                    safeTriggerOnVoiceReady(parsed.audioUrl, onVoiceReady)
+                    voiceReadyFired = true
+                  }
+                  if (parsed.audioUrl) safeTriggerOnAudio(parsed.audioUrl, onAudio)
+                  if (safeText && onDelta) {
+                    try { onDelta(safeText) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+                  }
+                  if (safeText || parsed.audioUrl) compositeBuffer = ''
+                  continue
+                }
 
                 // 檢查是否包含 LOGIN_REQUIRED 攔截信號
                 if (accumulatedContent.includes('LOGIN_REQUIRED') && !loginRequiredDetected) {
@@ -360,23 +670,22 @@ export const streamChat = async ({
 
                 // 如果已經檢測到登錄要求，過濾掉相關內容
                 if (loginRequiredDetected) {
-                  // 移除 LOGIN_REQUIRED 相關內容
-                  const cleanedDelta = delta.replace(/LOGIN_REQUIRED/gi, '').trim()
+                  const cleanedDelta = filterSensitiveSuffix(delta.replace(/LOGIN_REQUIRED/gi, ''))
                   if (cleanedDelta && onDelta) {
-                    try {
-                      onDelta(cleanedDelta)
-                    } catch (deltaError) {
-                      console.warn('[DifyService] onDelta 回調錯誤 (cleaned):', deltaError)
-                    }
+                    try { onDelta(cleanedDelta) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
                   }
                 } else {
-                  // 正常處理 delta
-                  if (onDelta) {
-                    try {
-                      onDelta(delta)
-                    } catch (deltaError) {
-                      console.warn('[DifyService] onDelta 回調錯誤:', deltaError)
-                    }
+                  // 正常處理：最後保護，確保不傳遞任何 JSON 片段
+                  const hasJsonMarkers = delta.includes('{') || delta.includes('}') || 
+                    delta.includes('"text"') || delta.includes('"audio_url"') ||
+                    delta.includes('":"') || delta.includes(',"')
+                  if (hasJsonMarkers) {
+                    console.warn('[DifyService] ⚠️ 檢測到 JSON 標記，跳過:', delta.slice(0, 80))
+                    continue
+                  }
+                  // 純文本，正常傳遞
+                  if (delta && onDelta) {
+                    try { onDelta(delta) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
                   }
                 }
               }

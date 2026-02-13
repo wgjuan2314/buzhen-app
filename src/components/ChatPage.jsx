@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Settings, CirclePlus, Play, Mic, Keyboard, Send } from 'lucide-react'
 import { streamChat, saveConversationId } from '../services/DifyService'
-import { generateSpeech, setBgmState } from '../services/VoiceService'
+import { playDifySpeech, unlockAudioContext, setBgmState } from '../services/VoiceService'
 import IntroCard from './IntroCard'
 import avatarImg from '../assets/avatar.jpg'
 import { useChatStore } from '../store/chatStore'
@@ -156,58 +156,71 @@ function renderTextWithBrackets(text, isUser = false) {
   )
 }
 
-// Typewriter 組件：實現流式打字機效果
-function Typewriter({ text, onComplete, onProgress, isUser = false }) {
+// 語音觸發水位線：50% 或 10 字符，以先到者為準
+const VOICE_TRIGGER_MIN_CHARS = 10
+const VOICE_TRIGGER_RATIO = 0.5
+
+// Typewriter 組件：實現流式打字機效果，支持「文字顯示到一半再觸發語音」
+function Typewriter({ text, onComplete, onProgress, onVoiceTrigger, cachedAudio, isUser = false }) {
   const [displayedText, setDisplayedText] = useState('')
   const timeoutRef = useRef(null)
   const indexRef = useRef(0)
+  const hasTriggeredVoiceRef = useRef(false)
   const onCompleteRef = useRef(onComplete)
   const onProgressRef = useRef(onProgress)
+  const onVoiceTriggerRef = useRef(onVoiceTrigger)
+  const cachedAudioRef = useRef(cachedAudio)
 
-  // 更新 ref 以確保使用最新的回調
   useEffect(() => {
     onCompleteRef.current = onComplete
     onProgressRef.current = onProgress
-  }, [onComplete, onProgress])
+    onVoiceTriggerRef.current = onVoiceTrigger
+    cachedAudioRef.current = cachedAudio
+  }, [onComplete, onProgress, onVoiceTrigger, cachedAudio])
 
   useEffect(() => {
-    // 重置狀態
     setDisplayedText('')
     indexRef.current = 0
+    hasTriggeredVoiceRef.current = false
 
-    // 如果沒有文字，直接完成
     if (!text || text.length === 0) {
-      if (onCompleteRef.current) {
-        onCompleteRef.current()
-      }
+      if (onCompleteRef.current) onCompleteRef.current()
       return
     }
+
+    const totalLen = text.length
 
     const typeNextChar = () => {
       if (indexRef.current >= text.length) {
         if (onCompleteRef.current) {
-          // 延遲一點點確保最後一個字符已顯示
-          setTimeout(() => {
-            onCompleteRef.current()
-          }, 50)
+          setTimeout(() => onCompleteRef.current(), 50)
         }
         return
       }
 
       const char = text[indexRef.current]
       const newText = text.slice(0, indexRef.current + 1)
+      const currentLen = indexRef.current + 1
       setDisplayedText(newText)
       indexRef.current++
 
-      // 觸發進度回調（用於實時滾動）
       if (onProgressRef.current) {
         onProgressRef.current(newText)
       }
 
-      // 計算延遲時間
-      let delay = 40 // 默認每字 40ms
-      
-      // 標點符號增加 100ms 停頓
+      // 語音觸發水位線：達到 50% 或 10 字符時觸發一次，且僅在有 audioUrl 時執行
+      if (
+        !hasTriggeredVoiceRef.current &&
+        cachedAudioRef.current &&
+        (currentLen >= VOICE_TRIGGER_MIN_CHARS || currentLen >= Math.ceil(totalLen * VOICE_TRIGGER_RATIO))
+      ) {
+        hasTriggeredVoiceRef.current = true
+        if (onVoiceTriggerRef.current) {
+          onVoiceTriggerRef.current()
+        }
+      }
+
+      let delay = 40
       if (/[，。！？、；：]/.test(char)) {
         delay += 100
       }
@@ -215,10 +228,8 @@ function Typewriter({ text, onComplete, onProgress, isUser = false }) {
       timeoutRef.current = setTimeout(typeNextChar, delay)
     }
 
-    // 開始打字
     typeNextChar()
 
-    // 清理函數
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
@@ -364,6 +375,10 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
   const autoPlayTimeoutRef = useRef(null) // 防抖：記錄自動播放的 timeout
   const autoPlayedIdsRef = useRef(new Set()) // 【狀態鎖定】記錄已經自動播放過的消息 ID，防止重複觸發
   const sendMessageRef = useRef(null) // 存儲最新的 sendMessage 函數
+  const audioCacheRef = useRef({}) // 緩存 Dify 內置 TTS 音頻，供重播使用
+  const lastPlayedUrlRef = useRef(null) // 防干擾：記錄最後播放的 audio_url，避免流式更新時重複觸發同一音頻
+  const jsonBufferRef = useRef('') // JSON 分片緩衝（針對 192 網絡環境）
+  const playedVoiceMessageIdsRef = useRef(new Set()) // 防重鎖：同一条消息的 URL 只物理播放一次
 
   const canSend = useMemo(() => input.trim().length > 0 && !isStreaming, [input, isStreaming])
 
@@ -374,11 +389,16 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       return
     }
 
+    // 第一時間解鎖音頻上下文，防止手機端瀏覽器攔截自動播放
+    unlockAudioContext()
+
     setIsStreaming(true)
 
     const assistantId = uid()
     const assistantMsg = { id: assistantId, role: 'assistant', content: '' }
     lastStreamingIdRef.current = assistantId
+    lastPlayedUrlRef.current = null // 新消息開始，允許本輪音頻播放
+    jsonBufferRef.current = '' // 清空 JSON 緩衝
 
     setMessages((prev) => [...prev, assistantMsg])
     scrollToBottom()
@@ -395,11 +415,102 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         inputs: {
           client_local_time: clientLocalTime, // 傳遞客戶端本地時間給 Dify 後端
         },
+        onVoiceReady: (url) => playVoice(assistantId, null, url),
         onDelta: (delta) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + delta } : m)),
+          console.log('📨 [ChatPage] ===== 收到 delta（完整）=====')
+          console.log('內容:', delta)
+          console.log('長度:', delta?.length, '前100字符:', delta?.slice(0, 100))
+          
+          let textToShow = delta
+          const trimmed = delta?.trim() || ''
+          
+          // 格式 1：音頻 URL（以 http 開頭且包含 .mp3）
+          const isAudioUrl = (trimmed.startsWith('http://') || trimmed.startsWith('https://')) && trimmed.includes('.mp3')
+          console.log('🔍 [ChatPage] 檢查是否為 URL:', isAudioUrl, '| trimmed:', trimmed.slice(0, 80))
+          
+          if (isAudioUrl) {
+            console.log('🎵 [ChatPage] ✅ 確認是音頻 URL，立即預下載...')
+            // 🎯 關鍵優化：立即 fetch 下載為 Blob，不等到播放時
+            fetch(trimmed, { mode: 'cors' })
+              .then(res => res.blob())
+              .then(blob => {
+                const blobUrl = URL.createObjectURL(blob)
+                audioCacheRef.current[assistantId] = blobUrl
+                console.log('✅ [ChatPage] 預下載完成，Blob 已緩存:', blob.size, 'bytes')
+              })
+              .catch(err => {
+                console.warn('⚠️ [ChatPage] 預下載失敗，緩存原始 URL:', err.message)
+                audioCacheRef.current[assistantId] = trimmed
+              })
+            return // URL 不顯示
+          }
+          
+          // 格式 2：JSON（支持單層和雙層嵌套）
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              const data = JSON.parse(trimmed)
+              textToShow = data.text || data.answer || ''
+              let audioUrl = data.audio_url || data.audioUrl || null
+              
+              console.log('📦 [ChatPage] JSON 解析 - text:', textToShow?.slice(0, 80), 'audio_url:', audioUrl?.slice(0, 80))
+              
+              // 雙層嵌套：如果 text 又是 JSON 字符串
+              if (typeof textToShow === 'string' && textToShow.trim().startsWith('{') && textToShow.trim().endsWith('}')) {
+                console.log('🔄 [ChatPage] 檢測到雙層 JSON，再解析一次')
+                try {
+                  const innerData = JSON.parse(textToShow)
+                  textToShow = innerData.text || ''
+                  audioUrl = innerData.audio_url || innerData.audioUrl || audioUrl
+                  console.log('✅ [ChatPage] 雙層解析成功 - text:', textToShow?.slice(0, 50), 'audio_url:', audioUrl?.slice(0, 80))
+                } catch (innerErr) {
+                  console.warn('❌ [ChatPage] 內層 JSON 解析失敗，清空文本')
+                  textToShow = ''
+                }
+              }
+              
+              // 緩存音頻：立即預下載為 Blob
+              if (audioUrl) {
+                console.log('🎵 [ChatPage] ✅ JSON 提取音頻 URL，立即預下載...')
+                fetch(audioUrl, { mode: 'cors' })
+                  .then(res => res.blob())
+                  .then(blob => {
+                    const blobUrl = URL.createObjectURL(blob)
+                    audioCacheRef.current[assistantId] = blobUrl
+                    console.log('✅ [ChatPage] 預下載完成（JSON路徑），Blob:', blob.size, 'bytes')
+                  })
+                  .catch(err => {
+                    console.warn('⚠️ [ChatPage] 預下載失敗（JSON路徑），緩存原始 URL:', err.message)
+                    audioCacheRef.current[assistantId] = audioUrl
+                  })
+              } else {
+                console.warn('⚠️ [ChatPage] JSON 中無 audio_url 字段！data:', data)
+              }
+            } catch (e) {
+              console.warn('⚠️ [ChatPage] JSON 解析失敗，不顯示')
+              return
+            }
+          }
+          
+          // 精準過濾：只過濾真正的 JSON 結構標記
+          const hasJsonStructure = textToShow && (
+            textToShow.includes('{"text"') || 
+            textToShow.includes('"audio_url"') ||
+            (textToShow.startsWith('{') && textToShow.includes('"') && textToShow.includes('}'))
           )
-          scrollToBottom()
+          
+          if (hasJsonStructure) {
+            console.warn('⚠️ [ChatPage] 檢測到 JSON 結構，過濾:', textToShow.slice(0, 50))
+            return
+          }
+          
+          // 顯示純文本（允許普通括號和詞語）
+          if (textToShow) {
+            console.log('✅ [ChatPage] 顯示文本:', textToShow.slice(0, 50))
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + textToShow } : m)),
+            )
+            scrollToBottom()
+          }
         },
         onMeta: (meta) => {
           // 從 Dify 響應中提取 stage_name
@@ -416,6 +527,11 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
           // 移除當前正在流式輸出的消息（因為包含 LOGIN_REQUIRED）
           setMessages((prev) => prev.filter((m) => m.id !== assistantId))
         },
+        onAudio: (audioContent) => {
+          // 緩存音頻（可能來自 DifyService 的舊格式路徑）
+          console.log('🎵 [ChatPage] onAudio 緩存（舊路徑）:', typeof audioContent === 'string' ? audioContent.slice(0, 100) : 'Blob')
+          audioCacheRef.current[assistantId] = audioContent
+        },
         signal: controller.signal,
       })
 
@@ -426,7 +542,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         return newSet
       })
 
-      // 注意：語音播放將在打字機效果完成後觸發（通過 Typewriter 的 onComplete 回調）
+      // 語音將在打字機達到 50% 或 10 字符時觸發（通過 Typewriter 的 onVoiceTrigger）
     } catch (error) {
       console.error('对话流式输出出错:', error)
       
@@ -717,71 +833,75 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
     i18n.changeLanguage(next)
   }
 
-  // 手動播放語音（用戶點擊圖標時觸發，不受請求鎖限制）
-  const playVoice = async (messageId, content) => {
-    console.log('[ChatPage] playVoice 被調用，messageId:', messageId, '內容長度:', content?.length || 0)
-    
-    if (!content || !content.trim()) {
-      console.log('[ChatPage] 內容為空，跳過播放')
+  // 手動播放語音（用戶點擊圖標時觸發，不受請求鎖限制）。若傳入 url 則直接播該 URL；否則走緩存。防重鎖：同一条消息只物理播放一次。
+  const playVoice = async (messageId, content, url) => {
+    console.log('[ChatPage] playVoice 被調用 - messageId:', messageId, 'url:', url ? url.slice(0, 80) : null)
+
+    const voiceSingleton = typeof window !== 'undefined' ? window.yubaiAudio : null
+    if (!voiceSingleton) {
+      console.error('[ChatPage] 語音單例不存在')
       return
     }
 
-    // 使用全局音頻單例，不依賴 audioRefs
-    const globalAudio = typeof window !== 'undefined' ? window.yubaiAudio : null
-    if (!globalAudio) {
-      console.error('[ChatPage] 全局音頻單例不存在')
-      return
-    }
-
-    // 如果點擊的是當前播放的語音，則停止
-    if (playingAudioId === messageId && !globalAudio.paused) {
-      console.log('[ChatPage] 停止當前播放的語音')
-      globalAudio.pause()
-      globalAudio.currentTime = 0
+    // 如果點擊當前播放中的，停止
+    if (playingAudioId === messageId && !voiceSingleton.paused) {
+      voiceSingleton.pause()
+      voiceSingleton.currentTime = 0
       setPlayingAudioId(null)
       return
     }
 
-    // 如果正在播放其他語音，先停止
-    if (playingAudioId && playingAudioId !== messageId && !globalAudio.paused) {
-      console.log('[ChatPage] 停止當前播放的語音:', playingAudioId)
-      globalAudio.pause()
-      globalAudio.currentTime = 0
+    // 停止其他播放
+    if (playingAudioId && playingAudioId !== messageId) {
+      voiceSingleton.pause()
+      voiceSingleton.currentTime = 0
     }
 
     try {
-      // 直接使用 VoiceService.generateSpeech，驅動全局單例 window.yubaiAudio
-      console.log('[ChatPage] 生成並播放語音...')
-      const playPromise = await generateSpeech(content.trim())
-      
-      if (playPromise) {
-        console.log('[ChatPage] 語音播放成功')
+      // 單例綁定：傳入了 url 時直接使用，且防重鎖（同 messageId 只播放一次）
+      if (url && typeof url === 'string' && url.trim()) {
+        if (playedVoiceMessageIdsRef.current.has(messageId)) {
+          console.log('[ChatPage] 防重鎖：該消息已播放過，跳過')
+          return
+        }
+        playedVoiceMessageIdsRef.current.add(messageId)
+        voiceSingleton.pause()
+        voiceSingleton.src = url
+        voiceSingleton.muted = false
+        voiceSingleton.volume = 1.0
+        await voiceSingleton.play()
+        console.log('✅ [ChatPage] 單例直接播放 URL 成功')
         setPlayingAudioId(messageId)
         userInteractedRef.current = true
-        setShowAudioPermissionTip(false)
-        
-        // 監聽播放結束
-        globalAudio.addEventListener('ended', () => {
-          console.log('[ChatPage] 語音播放結束')
-          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-        }, { once: true })
-        
-        // 監聽播放錯誤
-        globalAudio.addEventListener('error', (e) => {
-          console.error('[ChatPage] 語音播放錯誤:', e)
-          setPlayingAudioId((prev) => (prev === messageId ? null : prev))
-          setErrorMessageIds((prev) => new Set([...prev, messageId]))
-        }, { once: true })
+        voiceSingleton.onended = () => {
+          setPlayingAudioId(null)
+        }
+        voiceSingleton.onerror = () => {
+          setPlayingAudioId(null)
+        }
+        return
       }
+
+      // 無 url：走緩存
+      const cachedAudio = audioCacheRef.current[messageId]
+      if (!cachedAudio) {
+        console.warn('⚠️ [ChatPage] 無緩存音頻')
+        return
+      }
+      console.log('▶️ [ChatPage] 使用單例播放緩存 - URL:', typeof cachedAudio === 'string' ? cachedAudio.slice(0, 100) : 'Blob')
+      voiceSingleton.pause()
+      voiceSingleton.src = cachedAudio
+      voiceSingleton.muted = false
+      voiceSingleton.volume = 1.0
+      await voiceSingleton.play()
+      console.log('✅ [ChatPage] 單例播放成功')
+      setPlayingAudioId(messageId)
+      userInteractedRef.current = true
+      voiceSingleton.onended = () => setPlayingAudioId(null)
+      voiceSingleton.onerror = () => setPlayingAudioId(null)
     } catch (error) {
-      // 靜默錯誤處理：只記錄不彈窗，僅在控制台打印一次
-      console.error('[ChatPage] 語音播放失敗:', error)
-      setErrorMessageIds((prev) => new Set([...prev, messageId]))
-      // 檢查是否為自動播放被攔截
-      if (error.name === 'NotAllowedError' || error.name === 'NotSupportedError') {
-        console.log('[ChatPage] 檢測到播放被攔截，顯示權限提示')
-        setShowAudioPermissionTip(true)
-      }
+      console.error('❌ [ChatPage] 播放異常:', error)
+      setPlayingAudioId(null)
     }
   }
 
@@ -1156,43 +1276,45 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
                           <Typewriter
                             text={m.content}
                             isUser={false}
-                            onProgress={() => {
-                              // 實時滾動到底部
-                              scrollToBottom()
+                            cachedAudio={audioCacheRef.current[m.id]}
+                            onProgress={() => scrollToBottom()}
+                            onVoiceTrigger={() => {
+                              // 解析保護：僅在有 audioUrl 時執行；水位線觸發，只執行一次
+                              const messageId = m.id
+                              const cachedUrl = audioCacheRef.current[messageId]
+                              console.log('🎬 [ChatPage] onVoiceTrigger 觸發 - messageId:', messageId, 'cachedUrl:', cachedUrl?.slice(0, 100))
+                              if (!cachedUrl) {
+                                console.warn('⚠️ [ChatPage] 無緩存音頻，跳過播放')
+                                return
+                              }
+                              if (autoPlayedIdsRef.current.has(messageId)) {
+                                console.log('🔒 [ChatPage] 該消息已播放過，跳過')
+                                return
+                              }
+                              if (!isAutoPlayEnabled) return
+                              autoPlayedIdsRef.current.add(messageId)
+                              
+                              console.log('▶️ [ChatPage] 開始播放 - messageId:', messageId, 'URL:', cachedUrl?.slice(0, 100))
+                              playDifySpeech(audioCacheRef.current[messageId]).then(() => {
+                                setPlayingAudioId(messageId)
+                                setShowAudioPermissionTip(false)
+                                const globalAudio = typeof window !== 'undefined' ? window.yubaiAudio : null
+                                if (globalAudio) {
+                                  globalAudio.addEventListener('ended', () => {
+                                    setPlayingAudioId((prev) => (prev === messageId ? null : prev))
+                                  }, { once: true })
+                                  globalAudio.addEventListener('error', () => {
+                                    setPlayingAudioId((prev) => (prev === messageId ? null : prev))
+                                  }, { once: true })
+                                }
+                              }).catch(() => {})
                             }}
                             onComplete={() => {
-                              // 打字機效果完成後，標記為已完成
                               setTypewriterCompletedIds((prev) => {
                                 const newSet = new Set(prev)
                                 newSet.add(m.id)
                                 return newSet
                               })
-                              
-                              // 【唯一自動播放入口】如果當前消息是 assistant 角色，立即調用 playVoice
-                              if (m.role === 'assistant') {
-                                const messageId = m.id
-                                
-                                // 【狀態鎖定】檢查該消息是否已經自動播放過，防止重複觸發
-                                if (autoPlayedIdsRef.current.has(messageId)) {
-                                  console.log('[ChatPage] 消息已自動播放過，跳過重複觸發:', messageId)
-                                  return
-                                }
-                                
-                                // 【邏輯解耦】isMuted 僅控制 BGM，不影響語音自動播放
-                                // 已刪除對 isMuted 的檢查，確保關閉 BGM 後語音依然自動播放
-                                
-                                // 檢查自動播放開關
-                                if (!isAutoPlayEnabled) {
-                                  return
-                                }
-                                
-                                // 標記為已自動播放，防止重複觸發
-                                autoPlayedIdsRef.current.add(messageId)
-                                
-                                // 直接調用 playVoice，使用全局單例 window.yubaiAudio
-                                console.log('[ChatPage] 打字機效果完成，自動播放語音...', messageId)
-                                playVoice(messageId, m.content)
-                              }
                             }}
                           />
                         ) : m.role === 'assistant' && m.content ? (
