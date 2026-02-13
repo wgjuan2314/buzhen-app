@@ -1,4 +1,0 @@
-{
-    "build": [{ "name": "node", "version": "20" }],
-    "run": { "start": "npm run start" }
-  }
