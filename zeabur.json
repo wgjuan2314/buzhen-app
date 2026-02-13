@@ -1,5 +1,9 @@
 {
+  "build": {
+    "command": "npm run build"
+  },
   "deploy": {
+    "start_command": "npm run start",
     "routes": [
       {
         "src": "/api/tts",
