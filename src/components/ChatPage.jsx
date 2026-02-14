@@ -431,6 +431,9 @@ const ChatPage = forwardRef(function ChatPage(
       // 獲取客戶端本地時間（中文格式，24小時制）
       const clientLocalTime = new Date().toLocaleString('zh-CN', { hour12: false })
 
+      const currentTurns = useChatStore.getState().chatTurns
+      const intimacyLevel = getIntimacyLevel(currentTurns)
+
       await streamChat({
         query: trimmedQuery, // 確保是非空字符串
         inputs: {
@@ -438,6 +441,7 @@ const ChatPage = forwardRef(function ChatPage(
           location: sessionContext?.location ?? '',
           user_ip: sessionContext?.user_ip ?? '',
           buzhen_intimacy: initialIntimacy ?? '0',
+          intimacy_level: String(intimacyLevel), // 基於持久化 chatTurns 計算的等級
         },
         onVoiceReady: (url) => playVoice(assistantId, null, url),
         onDelta: (delta) => {
