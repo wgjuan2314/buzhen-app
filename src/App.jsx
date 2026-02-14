@@ -6,10 +6,24 @@ import GlobalClickEffect from './components/GlobalClickEffect'
 import { useBGM } from './hooks/useBGM'
 import { unlockAudioContext } from './services/VoiceService'
 
+// 會話上下文：地理位置與用戶 IP（可後續改為從 localStorage 讀取）
+const sessionContext = {
+  location: '上海',
+  user_ip: '101.227.139.217',
+}
+
 export default function App() {
   const [showChat, setShowChat] = useState(false)
   const chatPageRef = useRef(null)
   const { isMuted, toggleMute, startBGM } = useBGM()
+
+  const [initialIntimacy] = useState(() => {
+    try {
+      return localStorage.getItem('buzhen_intimacy') || '0'
+    } catch {
+      return '0'
+    }
+  })
 
   // 用戶首次交互後啟動 BGM
   useEffect(() => {
@@ -79,6 +93,8 @@ export default function App() {
               onAutoGreeting={true}
               isMuted={isMuted}
               toggleMute={toggleMute}
+              sessionContext={sessionContext}
+              initialIntimacy={initialIntimacy}
             />
           )}
         </AnimatePresence>

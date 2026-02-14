@@ -163,6 +163,13 @@ function renderTextWithBrackets(text, isUser = false) {
 const VOICE_TRIGGER_MIN_CHARS = 10
 const VOICE_TRIGGER_RATIO = 0.5
 
+// 開場白詞庫：隨機抽取，避免重複「你好」被 AI 吐槽
+const GREETING_POOL = [
+  '那个...', '唔...', '嗯哼', '喂', '你在吗', '理我一下嘛', '在看我吗', '来陪我吧',
+  '陪我聊聊天', '来陪我', '我跟你说哦', '有点想你了', '心里闷闷的', '在干嘛呀', '开心',
+  '突然想到你了', '哎', '在干嘛呀', '有点无聊哎', '在干嘛呀',
+]
+
 // Typewriter 組件：實現流式打字機效果，支持「文字顯示到一半再觸發語音」
 function Typewriter({ text, onComplete, onProgress, onVoiceTrigger, cachedAudio, isUser = false }) {
   const [displayedText, setDisplayedText] = useState('')
@@ -252,7 +259,10 @@ function Typewriter({ text, onComplete, onProgress, onVoiceTrigger, cachedAudio,
   )
 }
 
-const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleMute }, ref) {
+const ChatPage = forwardRef(function ChatPage(
+  { onAutoGreeting, isMuted, toggleMute, sessionContext = {}, initialIntimacy = '0' },
+  ref,
+) {
   const { t, i18n } = useTranslation()
   // 從 Zustand Store 獲取對話輪數
   const chatTurns = useChatStore((state) => state.chatTurns)
@@ -399,6 +409,12 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
 
     setIsStreaming(true)
 
+    // 僅當消息不是自動觸發詞時，才展示用戶氣泡
+    if (!GREETING_POOL.includes(trimmedQuery)) {
+      const userMsg = { id: uid(), role: 'user', content: trimmedQuery }
+      setMessages((prev) => [...prev, userMsg])
+    }
+
     const assistantId = uid()
     const assistantMsg = { id: assistantId, role: 'assistant', content: '' }
     lastStreamingIdRef.current = assistantId
@@ -419,6 +435,9 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
         query: trimmedQuery, // 確保是非空字符串
         inputs: {
           client_local_time: clientLocalTime, // 傳遞客戶端本地時間給 Dify 後端
+          location: sessionContext?.location ?? '',
+          user_ip: sessionContext?.user_ip ?? '',
+          buzhen_intimacy: initialIntimacy ?? '0',
         },
         onVoiceReady: (url) => playVoice(assistantId, null, url),
         onDelta: (delta) => {
@@ -580,7 +599,7 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
       abortRef.current = null
       scrollToBottom()
     }
-  }, [isMuted, isStreaming])
+  }, [isMuted, isStreaming, sessionContext, initialIntimacy])
 
   // 更新 sendMessageRef
   useEffect(() => {
@@ -601,30 +620,32 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
     }
   }, [])
 
-  // 暴露方法給父組件
-  useImperativeHandle(ref, () => ({
-    triggerAutoGreeting: () => {
-      if (!hasTriggeredGreeting) {
-        setHasTriggeredGreeting(true)
-        // 使用合法的開場語文本（根據語言設置）
-        const greetingText = i18n.language === 'zh-CN' ? '你好' : 'Hello'
-        sendMessage(greetingText)
-      }
-    },
-  }))
+  // 暴露方法給父組件：從詞庫隨機抽取開場語，靜默觸發後端對話（不展示用戶氣泡、不計輪數）
+  useImperativeHandle(
+    ref,
+    () => ({
+      triggerAutoGreeting: () => {
+        if (!hasTriggeredGreeting) {
+          setHasTriggeredGreeting(true)
+          const randomMsg = GREETING_POOL[Math.floor(Math.random() * GREETING_POOL.length)]
+          sendMessage(randomMsg)
+        }
+      },
+    }),
+    [hasTriggeredGreeting, sendMessage],
+  )
 
-  // 進入聊天頁 0.5 秒後自動觸發開場語
+  // 進入聊天頁 0.5 秒後自動觸發開場語：從詞庫隨機抽取，靜默觸發後端對話（不展示用戶氣泡、不計輪數）
   useEffect(() => {
     if (!hasTriggeredGreeting && onAutoGreeting) {
       const timer = setTimeout(() => {
         setHasTriggeredGreeting(true)
-        // 使用合法的開場語文本（根據語言設置）
-        const greetingText = i18n.language === 'zh-CN' ? '你好' : 'Hello'
-        sendMessage(greetingText)
+        const randomMsg = GREETING_POOL[Math.floor(Math.random() * GREETING_POOL.length)]
+        sendMessage(randomMsg)
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [hasTriggeredGreeting, onAutoGreeting, i18n.language])
+  }, [hasTriggeredGreeting, onAutoGreeting, sendMessage])
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -637,9 +658,6 @@ const ChatPage = forwardRef(function ChatPage({ onAutoGreeting, isMuted, toggleM
     if (!q || isStreaming) return
 
     setInput('')
-    const userMsg = { id: uid(), role: 'user', content: q }
-    setMessages((prev) => [...prev, userMsg])
-    scrollToBottom()
 
     // 用戶發送消息時，增加對話輪數
     incrementTurns()
