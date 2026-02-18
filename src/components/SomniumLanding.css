@@ -49,13 +49,14 @@
     letter-spacing: 6px; animation: fadeIn 1s ease forwards 0.8s;
 }
 
-/* --- 核心修改：按钮打包区域下移 100px --- */
+/* --- 按钮打包区域：整体上移 20px --- */
 .dream-section { 
-    margin-bottom: -20px; /* 原为 80px，减少 100px 实现整体下移  */
+    margin-bottom: -20px;
     position: relative; 
     display: flex;
     flex-direction: column;
     align-items: center;
+    transform: translateY(-20px);
 }
 
 .dream-btn {
@@ -115,5 +116,114 @@
 
 .footer-note {
     position: absolute; bottom: 20px; font-size: 11px;
-    color: rgba(255,255,255,0.4); text-align: center;
+    color: rgba(255,255,255,0.95); text-align: center;
+    opacity: 0.8;
+}
+
+/* ---------- 协议弹窗 Drawer ---------- */
+.agreement-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    animation: agreementFadeIn 0.25s ease;
+}
+
+.agreement-drawer {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: #fff;
+    border-radius: 24px 24px 0 0;
+    max-height: 85vh;
+    display: flex; flex-direction: column;
+    z-index: 101;
+    animation: agreementSlideUp 0.3s ease;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.agreement-drawer-header {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.agreement-drawer-title {
+    font-size: 16px; font-weight: 600;
+    color: #333;
+    text-align: center;
+}
+
+.agreement-drawer-close {
+    position: absolute;
+    right: 20px;
+    width: 32px; height: 32px;
+    border: none; background: transparent;
+    font-size: 24px; line-height: 1;
+    color: #999; cursor: pointer;
+    padding: 0; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    transition: color 0.2s, background 0.2s;
+}
+
+.agreement-drawer-close:hover {
+    color: #333;
+    background: #f5f5f5;
+}
+
+.agreement-drawer-body {
+    flex: 1;
+    min-height: 0;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 16px 20px 24px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.agreement-markdown {
+    font-size: 14px; line-height: 1.6;
+    color: #333;
+}
+
+.agreement-markdown h1 { font-size: 18px; margin-bottom: 12px; color: #111; }
+.agreement-markdown h2 { font-size: 16px; margin: 16px 0 8px; color: #222; }
+.agreement-markdown p { margin-bottom: 10px; }
+.agreement-markdown ul { margin: 8px 0; padding-left: 20px; }
+.agreement-markdown li { margin-bottom: 4px; }
+.agreement-markdown strong { color: #111; }
+
+.agreement-drawer-footer {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 协议确认按钮：禁用态 */
+.agreement-confirm-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: none; border-radius: 9999px;
+    font-size: 15px; font-weight: 500;
+    background: #e0e0e0;
+    color: #999;
+    cursor: not-allowed;
+    transition: background 0.25s, color 0.25s;
+}
+
+/* 协议确认按钮：激活态 */
+.agreement-confirm-btn--enabled {
+    background: linear-gradient(90deg, #ff7e9d, #ff9eb5);
+    color: #fff;
+    cursor: pointer;
+}
+
+.agreement-confirm-btn--enabled:active {
+    opacity: 0.9;
+}
+
+@keyframes agreementFadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+}
+
+@keyframes agreementSlideUp {
+    from { transform: translateY(100%); } to { transform: translateY(0); }
 }
