@@ -11,6 +11,7 @@ export const API_KEY = rawApiKey.trim()
 const CONVERSATION_ID_KEY = 'dify_conversation_id'
 const USER_IP_KEY = 'dify_user_ip'
 const USER_IP_TIMESTAMP_KEY = 'dify_user_ip_timestamp'
+const USER_ID_KEY = 'dify_user_id'
 
 // IP 緩存有效期（24小時）
 const IP_CACHE_DURATION = 24 * 60 * 60 * 1000
@@ -21,6 +22,26 @@ export const getConversationId = () => {
     return localStorage.getItem(CONVERSATION_ID_KEY) || null
   } catch {
     return null
+  }
+}
+
+// 生成或获取用户ID（每个设备唯一且固定）
+const getUserId = () => {
+  try {
+    let userId = localStorage.getItem(USER_ID_KEY)
+    if (!userId) {
+      // 基于时间戳+随机数+设备特征生成唯一ID
+      const timestamp = Date.now().toString(36)
+      const random = Math.random().toString(36).substring(2, 8)
+      const deviceInfo = navigator.userAgent.slice(0, 20).replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '')
+      userId = `user_${deviceInfo}_${timestamp}_${random}`
+      localStorage.setItem(USER_ID_KEY, userId)
+      console.log('[DifyService] 生成新用户ID:', userId)
+    }
+    return userId
+  } catch {
+    // 容错：如果localStorage不可用，返回临时ID
+    return `user_temp_${Date.now()}`
   }
 }
 
@@ -192,7 +213,7 @@ const parseCompositeResponse = (str) => {
           audioUrl = urlWithoutProtocol[2] ? `https://${urlWithoutProtocol[2]}` : null
         } else {
           // 無法解析，返回原始文本（過濾敏感內容）
-          text = s.replace(/^text=/, '').replace(/&audio_url=.*$/g, '').replace(/https?:\/\/[^\s]*/g, '').replace(/upload\.dify\.ai[^\s]*/g, '').trim()
+          text = s.replace(/^text=/, '').replace(/&audio_url=.*$/g, '').replace(/https?:\/\/[^\s]*/g, '').replace(/upload\.dify.ai[^\s]*/g, '').trim()
         }
       }
     }
@@ -284,7 +305,7 @@ const looksLikeComposite = (str) => {
 export const streamChat = async ({
   query,
   conversationId,
-  user = 'suansuan_user',
+  user = getUserId(),
   inputs = {},
   onDelta,
   onMeta,
@@ -310,7 +331,7 @@ export const streamChat = async ({
   }
 
   // Body 校驗：確保 user 有有效值
-  const validUser = typeof user === 'string' && user.trim() ? user.trim() : 'suansuan_user'
+  const validUser = typeof user === 'string' && user.trim() ? user.trim() : getUserId()
 
   // 從 localStorage 獲取 conversation_id（優先使用傳入的，否則從 localStorage 獲取）
   const persistedConversationId = conversationId || getConversationId()
