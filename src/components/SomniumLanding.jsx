@@ -4,15 +4,54 @@ import './SomniumLanding.css'
 
 const COUNTDOWN_SECONDS = 5
 
+// 获取设备ID（与 DifyService.js 保持一致）
+const getUserId = () => {
+  try {
+    let userId = localStorage.getItem('dify_user_id')
+    if (!userId) {
+      // 基于时间戳+随机数+设备特征生成唯一ID
+      const timestamp = Date.now().toString(36)
+      const random = Math.random().toString(36).substring(2, 8)
+      const deviceInfo = navigator.userAgent.slice(0, 20).replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '')
+      userId = `user_${deviceInfo}_${timestamp}_${random}`
+      localStorage.setItem('dify_user_id', userId)
+      console.log('[SomniumLanding] 生成新用户ID:', userId)
+    }
+    return userId
+  } catch {
+    return `user_temp_${Date.now()}`
+  }
+}
+
+// 检查是否已同意协议
+const hasAgreed = () => {
+  const userId = getUserId()
+  return localStorage.getItem(`agreed_${userId}`) === 'true'
+}
+
+// 标记已同意协议
+const setAgreed = () => {
+  const userId = getUserId()
+  localStorage.setItem(`agreed_${userId}`, 'true')
+  console.log('[SomniumLanding] 用户已同意协议:', userId)
+}
+
 const SomniumLanding = ({ onEnter }) => {
   const [showAgreement, setShowAgreement] = useState(false)
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS)
   const [agreementText, setAgreementText] = useState('')
 
-  // 点击「入梦」时打开协议弹窗
+  // 点击「入梦」时检查是否已同意
   const handleDreamClick = () => {
-    setShowAgreement(true)
-    setCountdown(COUNTDOWN_SECONDS)
+    if (hasAgreed()) {
+      // 已同意，直接进入
+      console.log('[SomniumLanding] 用户已同意过协议，直接进入')
+      onEnter()
+    } else {
+      // 未同意，显示协议弹窗
+      setShowAgreement(true)
+      setCountdown(COUNTDOWN_SECONDS)
+    }
   }
 
   // 弹窗打开后拉取协议内容
@@ -40,6 +79,7 @@ const SomniumLanding = ({ onEnter }) => {
   const isButtonEnabled = countdown === 0
   const handleConfirm = () => {
     if (!isButtonEnabled) return
+    setAgreed() // 标记已同意
     setShowAgreement(false)
     onEnter()
   }
@@ -119,8 +159,8 @@ const SomniumLanding = ({ onEnter }) => {
                 onClick={handleConfirm}
               >
                 {isButtonEnabled
-                  ? '我已满18岁，已阅读并同意服务协议'
-                  : `我已满18岁，已阅读并同意服务协议 (${countdown}s)`}
+                  ? '我已满18周岁，已阅读并同意服务协议'
+                  : `我已满18周岁，已阅读并同意服务协议 (${countdown}s)`}
               </button>
             </div>
           </div>
