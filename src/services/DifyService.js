@@ -6,6 +6,7 @@ export const BASE_URL = rawUrl.replace(/\/$/, '')
 // API Key 處理
 const rawApiKey = import.meta.env.VITE_DIFY_API_KEY || ''
 export const API_KEY = rawApiKey.trim()
+const RESPONSE_MODE = import.meta.env.VITE_DIFY_RESPONSE_MODE || 'blocking'
 
 // localStorage key
 const CONVERSATION_ID_KEY = 'dify_conversation_id'
@@ -326,6 +327,19 @@ const extractWorkflowPayload = (outputs) => {
   return { text, audioUrl }
 }
 
+const extractAnswerPayload = (answer) => {
+  if (typeof answer !== 'string') return { text: '', audioUrl: null }
+
+  const audioMatch = answer.match(/https?:\/\/\S+?\.mp3[^\s]*/i)
+  const audioUrl = audioMatch ? audioMatch[0] : null
+  const text = answer
+    .replace(/https?:\/\/\S+?\.mp3[^\s]*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return { text, audioUrl }
+}
+
 export const streamChat = async ({
   query,
   conversationId,
@@ -384,7 +398,7 @@ export const streamChat = async ({
       ...inputs,
     },
     query: queryText,
-    response_mode: 'streaming',
+    response_mode: RESPONSE_MODE,
     user: validUser,
   }
 
@@ -455,6 +469,37 @@ export const streamChat = async ({
       }
 
       throw error
+    }
+
+    if (requestBody.response_mode === 'blocking') {
+      const json = await response.json()
+
+      if (json.conversation_id) {
+        saveConversationId(json.conversation_id)
+      }
+
+      if (onMeta) {
+        try {
+          onMeta(json)
+        } catch (metaError) {
+          console.warn('[DifyService] onMeta 回調錯誤:', metaError)
+        }
+      }
+
+      const payload = extractAnswerPayload(json.answer)
+      if (payload.audioUrl) {
+        safeTriggerOnVoiceReady(payload.audioUrl, onVoiceReady)
+        safeTriggerOnAudio(completeAudioUrl(payload.audioUrl) || payload.audioUrl, onAudio)
+      }
+      if (payload.text && onDelta) {
+        try { onDelta(payload.text) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+      }
+
+      if (!payload.text) {
+        throw new Error('Dify blocking 響應沒有返回可顯示文本。')
+      }
+
+      return
     }
 
     // 流式處理：確保 response.body 存在
