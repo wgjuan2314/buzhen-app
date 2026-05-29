@@ -302,6 +302,30 @@ const looksLikeComposite = (str) => {
   return false
 }
 
+const pickFirstString = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+const extractWorkflowPayload = (outputs) => {
+  if (!outputs || typeof outputs !== 'object') return { text: '', audioUrl: null }
+
+  const text = pickFirstString(
+    outputs.text,
+    outputs.answer,
+    outputs.response,
+    outputs.output,
+    outputs.result,
+    outputs.final_answer,
+    outputs.message,
+  )
+  const audioUrl = pickFirstString(outputs.audio_url, outputs.audioUrl, outputs.audio, outputs.url) || null
+
+  return { text, audioUrl }
+}
+
 export const streamChat = async ({
   query,
   conversationId,
@@ -314,6 +338,15 @@ export const streamChat = async ({
   onVoiceReady,
   signal,
 }) => {
+  let visibleContentReceived = false
+  const originalOnDelta = onDelta
+  onDelta = (text) => {
+    if (typeof text === 'string' && text.trim()) {
+      visibleContentReceived = true
+    }
+    if (originalOnDelta) originalOnDelta(text)
+  }
+
   // Body 校驗：確保 query 是有效字串
   let queryText = ''
   if (typeof query === 'string' && query.trim()) {
@@ -556,6 +589,28 @@ export const streamChat = async ({
                 }
               }
 
+              if (json.event === 'workflow_finished' || json.event === 'node_finished') {
+                const status = json.data?.status
+                const workflowError = json.data?.error
+                if (status === 'failed' || workflowError) {
+                  throw new Error(`Dify 工作流失敗: ${workflowError || '未知錯誤'}`)
+                }
+              }
+
+              if (json.event === 'workflow_finished') {
+                const payload = extractWorkflowPayload(json.data?.outputs)
+                if (payload.audioUrl && !voiceReadyFired) {
+                  safeTriggerOnVoiceReady(payload.audioUrl, onVoiceReady)
+                  voiceReadyFired = true
+                }
+                if (payload.audioUrl && onAudio) {
+                  safeTriggerOnAudio(completeAudioUrl(payload.audioUrl) || payload.audioUrl, onAudio)
+                }
+                if (payload.text && onDelta) {
+                  try { onDelta(payload.text) } catch (e) { console.warn('[DifyService] onDelta 回調錯誤:', e) }
+                }
+              }
+
               // 捕獲 Dify 內置 TTS 音頻輸出
               if (onAudio) {
                 const audioData = json.audio ?? json.audio_url ?? json.message?.audio ?? json.data?.audio
@@ -740,6 +795,10 @@ export const streamChat = async ({
     // 流式響應結束後，確保 conversation_id 已保存
     if (currentConversationId && currentConversationId !== persistedConversationId) {
       saveConversationId(currentConversationId)
+    }
+
+    if (!visibleContentReceived && !loginRequiredDetected) {
+      throw new Error('Dify 工作流沒有返回可顯示文本，請檢查 Dify 後台工作流輸出或代碼節點錯誤。')
     }
   } catch (error) {
     // 詳細錯誤捕獲：打印完整的請求信息（隱藏敏感信息）
