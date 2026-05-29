@@ -330,10 +330,11 @@ const extractWorkflowPayload = (outputs) => {
 const extractAnswerPayload = (answer) => {
   if (typeof answer !== 'string') return { text: '', audioUrl: null }
 
-  const audioMatch = answer.match(/https?:\/\/\S+?\.mp3[^\s]*/i)
+  const audioUrlPattern = /https?:\/\/[A-Za-z0-9\-._~:/?#[\]@!$&'*+,;=%]+?\.mp3[A-Za-z0-9\-._~:/?#[\]@!$&'*+,;=%]*/i
+  const audioMatch = answer.match(audioUrlPattern)
   const audioUrl = audioMatch ? audioMatch[0] : null
   const text = answer
-    .replace(/https?:\/\/\S+?\.mp3[^\s]*/gi, '')
+    .replace(new RegExp(audioUrlPattern.source, 'gi'), '')
     .replace(/\s+/g, ' ')
     .trim()
 
